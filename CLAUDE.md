@@ -1,3 +1,60 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+Yaarpool is a WhatsApp ridesharing bot. Users post offers and requests in natural language inside a group (or DM); the bot detects intent and calls the matching tool.
+
+WhatsApp transport is provided by the `jigar-dhulla/laravel-whatsapp-ai-agent` package. Never edit the vendor source — instead, treat the package as a contract that must support:
+
+- reading inbound WhatsApp messages and routing them to a registered agent,
+- exposing the chat JID and sender JID to the agent (currently via the `RemembersWhatsAppConversations` trait) so tools can scope by chat and enforce ownership,
+- injecting recent chat history into the LLM context,
+- sending the agent's reply back to WhatsApp.
+
+If yaarpool needs behaviour the package doesn't support, raise it as a feature request against the package rather than patching `vendor/`.
+
+## Agents and Tools
+
+- `App\Ai\Agents\YaarpoolAgent` is the registered agent (see `config/whatsapp-agent.php`). It uses the `RemembersWhatsAppConversations` trait, which sets `$chatJid` and `$senderJid` from the inbound message before `tools()` is called and injects recent chat history into the LLM context.
+- Tools live under `app/Ai/Tools/`. Each implements `Laravel\Ai\Contracts\Tool` with `name()`, `description()`, `schema(JsonSchema)`, and `handle(Request)`. The string returned from `handle()` becomes the WhatsApp reply.
+
+| Tool | Purpose | Owner-only |
+|---|---|---|
+| `ride_request` | Persist a passenger looking for a lift | — |
+| `ride_create` | Persist a driver publishing a trip | — |
+| `ride_list` | List upcoming rides in the current chat | — |
+| `ride_update` | Edit a ride the user previously posted | ✓ |
+| `ride_delete` | Cancel a ride the user previously posted | ✓ |
+
+Owner-only tools refuse the call unless both `chat_jid` and `sender_jid` on the ride match the inbound message; rides in other chats are treated as not-found rather than surfaced.
+
+Datetime convention: the LLM emits `when_text` (verbatim user phrasing, kept for manual verification) plus a parsed `departs_at` (ISO-8601, NOT NULL). The current date is injected into the agent's instructions so relative phrases like "tomorrow" resolve correctly. Schemas use `->format('date-time')`; handlers read via `$request->date('departs_at')` and catch `Carbon\Exceptions\InvalidFormatException` to return a clarifying message.
+
+To add a tool: create the class under `app/Ai/Tools/` and register it in `YaarpoolAgent::tools()` (pass `chatJid` / `senderJid` if it needs scoping). To add a whole new agent: `php artisan make:agent <Name>` and register the FQCN in `config/whatsapp-agent.php`. Discover JIDs with `php artisan wa:chats` / `wa:groups`; verify wiring with `wa:status`.
+
+## Key Commands
+
+| Task | Command |
+|---|---|
+| Full dev stack (serve + queue + pail + vite) | `composer run dev` |
+| Run tests | `php artisan test --compact` |
+| Run a single test | `php artisan test --compact --filter=testName` |
+| Create a test | `php artisan make:test --pest SomeFeatureTest` |
+| Create an agent | `php artisan make:agent <Name>` |
+| Format PHP (required before finalizing) | `vendor/bin/pint --dirty --format agent` |
+| WhatsApp listener daemon | `php artisan wa:listen` (`-vvv` shows scanned messages, `--once` for a single iteration) |
+| WhatsApp status / JID discovery | `php artisan wa:status` / `wa:chats` / `wa:groups` |
+| Tail logs | `php artisan pail` |
+
+## Datastores
+
+- **App DB**: SQLite at `database/database.sqlite` — also backs sessions, cache, and the queue (`QUEUE_CONNECTION=database`).
+- **wacli DB**: SQLite at `~/.wacli/wacli.db` (`WA_WACLI_DATABASE`). Read-only from this app; populated externally by `wacli sync`.
+
+---
+
 <laravel-boost-guidelines>
 === foundation rules ===
 

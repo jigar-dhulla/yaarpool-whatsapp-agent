@@ -1,0 +1,372 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Ai\Tools\RideCreateTool;
+use App\Ai\Tools\RideDeleteTool;
+use App\Ai\Tools\RideListTool;
+use App\Ai\Tools\RideRequestTool;
+use App\Ai\Tools\RideUpdateTool;
+use App\Enums\RideType;
+use App\Models\Ride;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\JsonSchema\JsonSchemaTypeFactory;
+use Illuminate\Support\Carbon;
+use Laravel\Ai\Tools\Request;
+
+uses(RefreshDatabase::class);
+
+it('persists a ride request with both raw text and parsed datetime', function () {
+    $tool = new RideRequestTool(
+        chatJid: '120363409213306573@g.us',
+        senderJid: '919999999999@s.whatsapp.net',
+    );
+
+    $reply = $tool->handle(new Request([
+        'from' => 'Andheri East',
+        'to' => 'BKC',
+        'when_text' => 'tomorrow 8am',
+        'departs_at' => '2026-05-20T08:00:00',
+        'seats' => 2,
+        'notes' => 'one cabin bag',
+    ]));
+
+    expect(Ride::count())->toBe(1);
+
+    $ride = Ride::sole();
+    expect($ride->type)->toBe(RideType::Request)
+        ->and($ride->chat_jid)->toBe('120363409213306573@g.us')
+        ->and($ride->sender_jid)->toBe('919999999999@s.whatsapp.net')
+        ->and($ride->from_location)->toBe('Andheri East')
+        ->and($ride->to_location)->toBe('BKC')
+        ->and($ride->when_text)->toBe('tomorrow 8am')
+        ->and($ride->departs_at)->toEqual(Carbon::parse('2026-05-20T08:00:00'))
+        ->and($ride->seats)->toBe(2)
+        ->and($ride->notes)->toBe('one cabin bag');
+
+    expect((string) $reply)
+        ->toContain('Andheri East')
+        ->toContain('BKC')
+        ->toContain('tomorrow 8am')
+        ->toContain('2 seats');
+});
+
+it('defaults a missing seats value to 1 on a ride request', function () {
+    $tool = new RideRequestTool;
+
+    $tool->handle(new Request([
+        'from' => 'A',
+        'to' => 'B',
+        'when_text' => 'now',
+        'departs_at' => Carbon::now()->toIso8601String(),
+    ]));
+
+    expect(Ride::sole()->seats)->toBe(1);
+});
+
+it('returns a clarifying message and does not persist when departs_at is unparseable', function () {
+    $tool = new RideRequestTool;
+
+    $reply = $tool->handle(new Request([
+        'from' => 'A',
+        'to' => 'B',
+        'when_text' => 'sometime',
+        'departs_at' => 'not-a-datetime',
+    ]));
+
+    expect(Ride::count())->toBe(0)
+        ->and((string) $reply)->toContain('could not work out');
+});
+
+it('persists a ride offer with price, vehicle, and parsed datetime', function () {
+    $tool = new RideCreateTool(
+        chatJid: '120363409213306573@g.us',
+        senderJid: '918888888888@s.whatsapp.net',
+    );
+
+    $reply = $tool->handle(new Request([
+        'from' => 'Pune',
+        'to' => 'Mumbai',
+        'when_text' => 'Sat 9:30am',
+        'departs_at' => '2026-05-23T09:30:00',
+        'seats' => 3,
+        'price_per_seat' => '₹500',
+        'vehicle' => 'Innova',
+    ]));
+
+    $ride = Ride::sole();
+    expect($ride->type)->toBe(RideType::Offer)
+        ->and($ride->from_location)->toBe('Pune')
+        ->and($ride->to_location)->toBe('Mumbai')
+        ->and($ride->when_text)->toBe('Sat 9:30am')
+        ->and($ride->departs_at)->toEqual(Carbon::parse('2026-05-23T09:30:00'))
+        ->and($ride->seats)->toBe(3)
+        ->and($ride->price_per_seat)->toBe('₹500')
+        ->and($ride->vehicle)->toBe('Innova');
+
+    expect((string) $reply)
+        ->toContain('Pune → Mumbai')
+        ->toContain('Sat 9:30am')
+        ->toContain('3 seats')
+        ->toContain('₹500/seat');
+});
+
+it('lists upcoming rides scoped to the current chat', function () {
+    $chatJid = '120363409213306573@g.us';
+
+    Ride::factory()->request()->create([
+        'chat_jid' => $chatJid,
+        'from_location' => 'Andheri East',
+        'to_location' => 'BKC',
+        'when_text' => 'tomorrow 8am',
+        'departs_at' => Carbon::now()->addDay(),
+        'seats' => 2,
+    ]);
+
+    Ride::factory()->offer()->create([
+        'chat_jid' => $chatJid,
+        'from_location' => 'Pune',
+        'to_location' => 'Mumbai',
+        'when_text' => 'Sat 9:30am',
+        'departs_at' => Carbon::now()->addDays(3),
+        'seats' => 3,
+        'price_per_seat' => '₹500',
+    ]);
+
+    Ride::factory()->request()->create([
+        'chat_jid' => 'other-chat@g.us',
+        'from_location' => 'Delhi',
+        'to_location' => 'Agra',
+        'departs_at' => Carbon::now()->addDay(),
+    ]);
+
+    Ride::factory()->offer()->create([
+        'chat_jid' => $chatJid,
+        'from_location' => 'Bengaluru',
+        'to_location' => 'Mysuru',
+        'departs_at' => Carbon::now()->subDay(),
+    ]);
+
+    $reply = (string) (new RideListTool(chatJid: $chatJid))->handle(new Request([]));
+
+    expect($reply)
+        ->toContain('Andheri East')
+        ->toContain('BKC')
+        ->toContain('Pune → Mumbai')
+        ->toContain('₹500')
+        ->not->toContain('Delhi')
+        ->not->toContain('Bengaluru');
+});
+
+it('filters listings by type when specified', function () {
+    $chatJid = '120363409213306573@g.us';
+
+    Ride::factory()->request()->create([
+        'chat_jid' => $chatJid,
+        'from_location' => 'Andheri East',
+        'to_location' => 'BKC',
+        'departs_at' => Carbon::now()->addDay(),
+    ]);
+
+    Ride::factory()->offer()->create([
+        'chat_jid' => $chatJid,
+        'from_location' => 'Pune',
+        'to_location' => 'Mumbai',
+        'departs_at' => Carbon::now()->addDays(2),
+    ]);
+
+    $offersOnly = (string) (new RideListTool(chatJid: $chatJid))->handle(new Request([
+        'type' => 'offer',
+    ]));
+
+    expect($offersOnly)
+        ->toContain('OFFER')
+        ->toContain('Pune → Mumbai')
+        ->not->toContain('Andheri East');
+});
+
+it('returns a friendly message when no upcoming rides exist', function () {
+    $reply = (new RideListTool(chatJid: '120363409213306573@g.us'))->handle(new Request([]));
+
+    expect((string) $reply)->toContain('No upcoming rides');
+});
+
+it('lets the owner update their own ride', function () {
+    $chatJid = '120363409213306573@g.us';
+    $senderJid = '919999999999@s.whatsapp.net';
+
+    $ride = Ride::factory()->offer()->create([
+        'chat_jid' => $chatJid,
+        'sender_jid' => $senderJid,
+        'from_location' => 'Pune',
+        'to_location' => 'Mumbai',
+        'when_text' => 'Sat 9:30am',
+        'departs_at' => Carbon::parse('2026-05-23T09:30:00'),
+        'seats' => 3,
+        'price_per_seat' => '₹500',
+    ]);
+
+    $reply = (new RideUpdateTool(chatJid: $chatJid, senderJid: $senderJid))->handle(new Request([
+        'ride_id' => $ride->id,
+        'seats' => 2,
+        'price_per_seat' => '₹600',
+    ]));
+
+    $ride->refresh();
+
+    expect($ride->seats)->toBe(2)
+        ->and($ride->price_per_seat)->toBe('₹600')
+        ->and($ride->from_location)->toBe('Pune')
+        ->and((string) $reply)->toContain('updated')->toContain('2 seats');
+});
+
+it('refuses to update a ride owned by someone else', function () {
+    $chatJid = '120363409213306573@g.us';
+
+    $ride = Ride::factory()->request()->create([
+        'chat_jid' => $chatJid,
+        'sender_jid' => '919999999999@s.whatsapp.net',
+        'from_location' => 'Andheri East',
+        'to_location' => 'BKC',
+        'seats' => 2,
+    ]);
+
+    $reply = (new RideUpdateTool(chatJid: $chatJid, senderJid: '911111111111@s.whatsapp.net'))->handle(new Request([
+        'ride_id' => $ride->id,
+        'seats' => 5,
+    ]));
+
+    expect($ride->fresh()->seats)->toBe(2)
+        ->and((string) $reply)->toContain('Only the person who posted');
+});
+
+it('hides rides from other chats when updating', function () {
+    $ride = Ride::factory()->offer()->create([
+        'chat_jid' => 'other-chat@g.us',
+        'sender_jid' => '919999999999@s.whatsapp.net',
+        'seats' => 3,
+    ]);
+
+    $reply = (new RideUpdateTool(chatJid: '120363409213306573@g.us', senderJid: '919999999999@s.whatsapp.net'))->handle(new Request([
+        'ride_id' => $ride->id,
+        'seats' => 1,
+    ]));
+
+    expect($ride->fresh()->seats)->toBe(3)
+        ->and((string) $reply)->toContain('could not find');
+});
+
+it('returns a clarifying message when the updated departs_at is unparseable', function () {
+    $chatJid = '120363409213306573@g.us';
+    $senderJid = '919999999999@s.whatsapp.net';
+
+    $ride = Ride::factory()->request()->create([
+        'chat_jid' => $chatJid,
+        'sender_jid' => $senderJid,
+        'when_text' => 'tomorrow 8am',
+        'departs_at' => Carbon::parse('2026-05-20T08:00:00'),
+    ]);
+
+    $reply = (new RideUpdateTool(chatJid: $chatJid, senderJid: $senderJid))->handle(new Request([
+        'ride_id' => $ride->id,
+        'departs_at' => 'not-a-datetime',
+    ]));
+
+    expect($ride->fresh()->when_text)->toBe('tomorrow 8am')
+        ->and((string) $reply)->toContain('could not work out');
+});
+
+it('lets the owner cancel their own ride', function () {
+    $chatJid = '120363409213306573@g.us';
+    $senderJid = '919999999999@s.whatsapp.net';
+
+    $ride = Ride::factory()->request()->create([
+        'chat_jid' => $chatJid,
+        'sender_jid' => $senderJid,
+        'from_location' => 'Andheri East',
+        'to_location' => 'BKC',
+    ]);
+
+    $reply = (new RideDeleteTool(chatJid: $chatJid, senderJid: $senderJid))->handle(new Request([
+        'ride_id' => $ride->id,
+    ]));
+
+    expect(Ride::find($ride->id))->toBeNull()
+        ->and((string) $reply)->toContain('cancelled')
+        ->toContain('Andheri East')
+        ->toContain('BKC');
+});
+
+it('refuses to delete a ride owned by someone else', function () {
+    $chatJid = '120363409213306573@g.us';
+
+    $ride = Ride::factory()->offer()->create([
+        'chat_jid' => $chatJid,
+        'sender_jid' => '919999999999@s.whatsapp.net',
+    ]);
+
+    $reply = (new RideDeleteTool(chatJid: $chatJid, senderJid: '911111111111@s.whatsapp.net'))->handle(new Request([
+        'ride_id' => $ride->id,
+    ]));
+
+    expect(Ride::find($ride->id))->not->toBeNull()
+        ->and((string) $reply)->toContain('Only the person who posted');
+});
+
+it('hides rides from other chats when deleting', function () {
+    $ride = Ride::factory()->offer()->create([
+        'chat_jid' => 'other-chat@g.us',
+        'sender_jid' => '919999999999@s.whatsapp.net',
+    ]);
+
+    $reply = (new RideDeleteTool(chatJid: '120363409213306573@g.us', senderJid: '919999999999@s.whatsapp.net'))->handle(new Request([
+        'ride_id' => $ride->id,
+    ]));
+
+    expect(Ride::find($ride->id))->not->toBeNull()
+        ->and((string) $reply)->toContain('could not find');
+});
+
+it('refuses to mutate rides when the sender JID is not known', function () {
+    $ride = Ride::factory()->request()->create([
+        'chat_jid' => '120363409213306573@g.us',
+        'sender_jid' => '919999999999@s.whatsapp.net',
+    ]);
+
+    $updateReply = (new RideUpdateTool(chatJid: '120363409213306573@g.us'))->handle(new Request([
+        'ride_id' => $ride->id,
+        'seats' => 5,
+    ]));
+
+    $deleteReply = (new RideDeleteTool(chatJid: '120363409213306573@g.us'))->handle(new Request([
+        'ride_id' => $ride->id,
+    ]));
+
+    expect((string) $updateReply)->toContain('cannot verify')
+        ->and((string) $deleteReply)->toContain('cannot verify')
+        ->and(Ride::find($ride->id))->not->toBeNull();
+});
+
+it('exposes the expected names and schema keys to the agent', function () {
+    $schema = new JsonSchemaTypeFactory;
+
+    expect((new RideRequestTool)->name())->toBe('ride_request')
+        ->and(array_keys((new RideRequestTool)->schema($schema)))
+        ->toBe(['from', 'to', 'when_text', 'departs_at', 'seats', 'notes']);
+
+    expect((new RideCreateTool)->name())->toBe('ride_create')
+        ->and(array_keys((new RideCreateTool)->schema($schema)))
+        ->toBe(['from', 'to', 'when_text', 'departs_at', 'seats', 'price_per_seat', 'vehicle', 'notes']);
+
+    expect((new RideListTool)->name())->toBe('ride_list')
+        ->and(array_keys((new RideListTool)->schema($schema)))
+        ->toBe(['type', 'limit']);
+
+    expect((new RideUpdateTool)->name())->toBe('ride_update')
+        ->and(array_keys((new RideUpdateTool)->schema($schema)))
+        ->toBe(['ride_id', 'from', 'to', 'when_text', 'departs_at', 'seats', 'price_per_seat', 'vehicle', 'notes']);
+
+    expect((new RideDeleteTool)->name())->toBe('ride_delete')
+        ->and(array_keys((new RideDeleteTool)->schema($schema)))
+        ->toBe(['ride_id']);
+});

@@ -1,7 +1,7 @@
 <?php
 
 declare(strict_types=1);
-use JigarDhulla\LaravelWhatsApp\Agents\WhatsAppAgent;
+use App\Ai\Agents\YaarpoolAgent;
 
 return [
 
@@ -46,7 +46,7 @@ return [
 
     'agents' => [
         [
-            'agent' => WhatsAppAgent::class,
+            'agent' => YaarpoolAgent::class,
             'triggers' => [], // wa:status will give you account JID which you can set trigger as. e.g., @123456789 - this enables tagging/mentions in groups
             'chats' => [], // run `php artisan wa:chats` for chat jids
             'groups' => ['120363409213306573@g.us'], // run `php artisan wa:groups` for group jids
