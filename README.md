@@ -1,58 +1,73 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Yaarpool
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A WhatsApp ridesharing bot. Members of a group (or DM) post offers ("driving Pune → Mumbai Sat 9am, 3 seats") and requests ("need a lift Andheri → BKC tomorrow 8am") in natural language; Yaarpool detects intent and persists, lists, edits, or cancels rides on their behalf.
 
-## About Laravel
+## How it works
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Inbound WhatsApp messages are pulled from a local `wacli` SQLite store and routed to `App\Ai\Agents\YaarpoolAgent`. The agent is built on the Laravel AI SDK and backed by Google Gemini by default. Depending on intent, it calls one of five tools:
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+| Tool | Purpose | Owner-only |
+|---|---|---|
+| `ride_request` | Persist a passenger looking for a lift | — |
+| `ride_create` | Persist a driver publishing a trip | — |
+| `ride_list` | List upcoming rides in the current chat | — |
+| `ride_update` | Edit a ride the user previously posted | ✓ |
+| `ride_delete` | Cancel a ride the user previously posted | ✓ |
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+Owner-only tools refuse the call unless both the chat JID and sender JID on the ride match the inbound WhatsApp message; rides in other chats are treated as not-found rather than surfaced.
 
-## Learning Laravel
+WhatsApp transport is handled by [`jigar-dhulla/laravel-whatsapp-ai-agent`](https://github.com/jigar-dhulla/laravel-whatsapp-ai-agent), which in turn relies on the external `wacli` sync daemon to maintain `~/.wacli/wacli.db`.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## Requirements
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+- PHP 8.3+
+- A Gemini API key (`GEMINI_API_KEY`)
+- `wacli sync --follow --refresh-contacts --refresh-groups` running externally to keep `~/.wacli/wacli.db` populated
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Setup
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Add `GEMINI_API_KEY` to `.env`, then wire your group / DM JID into `config/whatsapp-agent.php`. Discover JIDs with:
 
-## Contributing
+```bash
+php artisan wa:chats     # list 1:1 chats
+php artisan wa:groups    # list groups
+php artisan wa:status    # verify which agent is wired to which chat
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## Running
 
-## Code of Conduct
+Start the app stack (HTTP server, queue worker, log tail, Vite):
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+composer run dev
+```
 
-## Security Vulnerabilities
+Start the WhatsApp listener daemon in a separate terminal:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+php artisan wa:listen          # add -vvv to log every scanned message
+```
+
+## Tests
+
+```bash
+php artisan test --compact
+```
+
+## Project structure
+
+- `app/Ai/Agents/YaarpoolAgent.php` — the registered agent; receives the inbound message and orchestrates tool calls.
+- `app/Ai/Tools/` — one file per tool (`RideRequestTool`, `RideCreateTool`, `RideListTool`, `RideUpdateTool`, `RideDeleteTool`).
+- `app/Models/Ride.php` and the `rides` table — canonical store for both ride requests and offers, distinguished by a `type` enum.
+- `config/whatsapp-agent.php` — registers the agent FQCN against chat/group JIDs.
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Yaarpool is licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0-only)](https://www.gnu.org/licenses/agpl-3.0.html). The full text is in [`LICENSE`](LICENSE).
