@@ -55,6 +55,34 @@ Start the WhatsApp listener daemon in a separate terminal:
 php artisan wa:listen          # add -vvv to log every scanned message
 ```
 
+## Run with Docker
+
+A `Dockerfile` and `docker-compose.yml` are included if you'd rather not install PHP or `wacli` on the host. The image bundles PHP 8.4, Composer, and a Linux build of `wacli`; compose runs four services off the same image:
+
+- `wacli` — the `wacli sync` daemon that keeps `~/.wacli/wacli.db` populated.
+- `wa-listen` — `php artisan wa:listen`.
+- `queue` — the database queue worker.
+- `app` — on-demand shell for ad-hoc artisan / composer / tests (in the `cli` profile, so it doesn't start with `up`).
+
+The project source is bind-mounted at `/app` and the host's `~/.wacli` is bind-mounted into each container so the existing WhatsApp pairing is reused. **Stop any host-side `wacli sync` first** to avoid two daemons writing to the same SQLite file.
+
+```bash
+docker compose build
+docker compose run --rm app composer install
+docker compose run --rm app php artisan migrate
+docker compose up -d wacli wa-listen queue
+```
+
+Ad-hoc artisan, composer, or tests go through the `app` service:
+
+```bash
+docker compose run --rm app php artisan test --compact
+docker compose run --rm app php artisan wa:status
+docker compose logs -f wa-listen
+```
+
+To pin a different `wacli` release, pass `--build-arg WACLI_VERSION=<version>` to `docker compose build`.
+
 ## Tests
 
 ```bash

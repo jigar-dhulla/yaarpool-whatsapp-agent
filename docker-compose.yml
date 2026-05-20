@@ -1,0 +1,40 @@
+name: yaarpool
+
+x-php: &php
+  build:
+    context: .
+    args:
+      WACLI_VERSION: "0.9.2"
+  image: yaarpool/app:local
+  working_dir: /app
+  environment:
+    WA_WACLI_BINARY: /usr/local/bin/wacli
+    WA_WACLI_DATABASE: /root/.wacli/wacli.db
+  volumes:
+    - .:/app
+    - ${HOME}/.wacli:/root/.wacli
+
+services:
+  wacli:
+    <<: *php
+    command: ["wacli", "sync", "--follow", "--refresh-contacts", "--refresh-groups"]
+    restart: unless-stopped
+
+  queue:
+    <<: *php
+    command: ["php", "artisan", "queue:work", "--tries=1", "--timeout=0"]
+    restart: unless-stopped
+    depends_on:
+      - wacli
+
+  wa-listen:
+    <<: *php
+    command: ["php", "artisan", "wa:listen"]
+    restart: unless-stopped
+    depends_on:
+      - wacli
+
+  app:
+    <<: *php
+    profiles: ["cli"]
+    command: ["bash"]
