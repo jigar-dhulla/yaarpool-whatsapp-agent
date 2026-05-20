@@ -49,7 +49,7 @@ return [
             'agent' => YaarpoolAgent::class,
             'triggers' => [], // wa:status will give you account JID which you can set trigger as. e.g., @123456789 - this enables tagging/mentions in groups
             'chats' => [], // run `php artisan wa:chats` for chat jids
-            'groups' => ['120363409213306573@g.us'], // run `php artisan wa:groups` for group jids
+            'groups' => array_filter([env('YAARPOOL_GROUP_JID', '120363409213306573@g.us')]), // run `php artisan wa:groups` for group jids
         ],
     ],
 

@@ -30,5 +30,13 @@ COPY --from=wacli-fetch /tmp/wacli /usr/local/bin/wacli
 ENV COMPOSER_ALLOW_SUPERUSER=1
 WORKDIR /app
 
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-interaction --no-progress --no-scripts --prefer-dist
+
+COPY . .
+RUN composer dump-autoload --optimize --no-dev \
+    && php artisan config:clear \
+    && php artisan route:clear
+
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["php", "-a"]

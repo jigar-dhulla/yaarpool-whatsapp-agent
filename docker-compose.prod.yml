@@ -1,0 +1,46 @@
+name: yaarpool
+
+x-php: &php
+  image: ghcr.io/jigar-dhulla/yaarpool-whatsapp-agent:latest
+  working_dir: /app
+  env_file: .env
+  environment:
+    WA_WACLI_BINARY: /usr/local/bin/wacli
+    WA_WACLI_DATABASE: /root/.wacli/wacli.db
+  volumes:
+    - app-db:/app/database
+    - app-storage:/app/storage
+    - ${HOME}/.wacli:/root/.wacli
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+  restart: unless-stopped
+
+services:
+  wacli:
+    <<: *php
+    command: ["wacli", "sync", "--follow", "--refresh-contacts", "--refresh-groups"]
+
+  queue:
+    <<: *php
+    command: ["php", "artisan", "queue:work", "--tries=1", "--timeout=0"]
+    depends_on:
+      - wacli
+
+  wa-listen:
+    <<: *php
+    command: ["php", "artisan", "wa:listen"]
+    depends_on:
+      - wacli
+
+  app:
+    <<: *php
+    profiles: ["cli"]
+    restart: "no"
+    command: ["bash"]
+
+volumes:
+  app-db:
+  app-storage:
