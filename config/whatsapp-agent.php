@@ -3,6 +3,11 @@
 declare(strict_types=1);
 use App\Ai\Agents\YaarpoolAgent;
 
+$csv = static fn (?string $value): array => array_values(array_filter(
+    array_map('trim', explode(',', (string) $value)),
+    static fn (string $item): bool => $item !== '',
+));
+
 return [
 
     /*
@@ -47,9 +52,9 @@ return [
     'agents' => [
         [
             'agent' => YaarpoolAgent::class,
-            'triggers' => [], // wa:status will give you account JID which you can set trigger as. e.g., @123456789 - this enables tagging/mentions in groups
-            'chats' => [], // run `php artisan wa:chats` for chat jids
-            'groups' => array_filter([env('YAARPOOL_GROUP_JID', '120363409213306573@g.us')]), // run `php artisan wa:groups` for group jids
+            'triggers' => $csv(env('YAARPOOL_TRIGGERS')), // CSV of trigger phrases. wa:status reveals the account JID for @mention triggers (e.g., @123456789)
+            'chats' => $csv(env('YAARPOOL_CHATS')), // CSV of DM JIDs. run `php artisan wa:chats`
+            'groups' => $csv(env('YAARPOOL_GROUPS')), // CSV of group JIDs. run `php artisan wa:groups`
         ],
     ],
 

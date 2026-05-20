@@ -8,6 +8,7 @@ x-php: &php
     WA_WACLI_BINARY: /usr/local/bin/wacli
     WA_WACLI_DATABASE: /root/.wacli/wacli.db
   volumes:
+    - ./.env:/app/.env
     - app-db:/app/database
     - app-storage:/app/storage
     - ${HOME}/.wacli:/root/.wacli
