@@ -1207,16 +1207,16 @@
         },
         {
             "name": "jigar-dhulla/laravel-whatsapp-ai-agent",
-            "version": "v0.2.2",
+            "version": "v0.2.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/jigar-dhulla/laravel-whatsapp-ai-agent.git",
-                "reference": "b3007a3ec255ca9d4e677434a6c707f8dc9a8e88"
+                "reference": "3fb7051a889b0be62208f0fdb92b88dad8c518d7"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/jigar-dhulla/laravel-whatsapp-ai-agent/zipball/b3007a3ec255ca9d4e677434a6c707f8dc9a8e88",
-                "reference": "b3007a3ec255ca9d4e677434a6c707f8dc9a8e88",
+                "url": "https://api.github.com/repos/jigar-dhulla/laravel-whatsapp-ai-agent/zipball/3fb7051a889b0be62208f0fdb92b88dad8c518d7",
+                "reference": "3fb7051a889b0be62208f0fdb92b88dad8c518d7",
                 "shasum": ""
             },
             "require": {
@@ -1256,9 +1256,9 @@
             "description": "A Laravel package for building WhatsApp AI agents on top of wacli.",
             "support": {
                 "issues": "https://github.com/jigar-dhulla/laravel-whatsapp-ai-agent/issues",
-                "source": "https://github.com/jigar-dhulla/laravel-whatsapp-ai-agent/tree/v0.2.2"
+                "source": "https://github.com/jigar-dhulla/laravel-whatsapp-ai-agent/tree/v0.2.3"
             },
-            "time": "2026-05-21T18:20:48+00:00"
+            "time": "2026-05-21T19:19:29+00:00"
         },
         {
             "name": "laravel/ai",
