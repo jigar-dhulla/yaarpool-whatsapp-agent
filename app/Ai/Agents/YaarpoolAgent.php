@@ -9,6 +9,7 @@ use App\Ai\Tools\RideDeleteTool;
 use App\Ai\Tools\RideListTool;
 use App\Ai\Tools\RideRequestTool;
 use App\Ai\Tools\RideUpdateTool;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use JigarDhulla\LaravelWhatsApp\Traits\RemembersWhatsAppConversations;
 use Laravel\Ai\Contracts\Agent;
@@ -28,11 +29,17 @@ class YaarpoolAgent implements Agent, Conversational, HasTools
         $now = Carbon::now();
         $today = $now->format('l, j F Y H:i');
         $timezone = $now->timezoneName;
+        $triggers = collect(config('whatsapp-agent.agents'))
+            ->firstWhere(static fn (array $agent) => Arr::get($agent, 'agent') === self::class, [])['triggers'] ?? [];
+
+        $triggersLine = $triggers === []
+            ? ''
+            : "\nYou as agent are mentioned/triggered by these triggers: ".implode(', ', $triggers);
 
         return <<<PROMPT
 You are Yaarpool, a friendly ridesharing assistant operating inside WhatsApp groups and direct messages. Members of the group use you to either offer rides (as a driver) or request rides (as a passenger).
 
-Current date and time: {$today} ({$timezone}). Use this to resolve relative phrases like "tomorrow", "tonight", "Friday", "next Monday" when populating the `departs_at` field of a tool.
+Current date and time: {$today} ({$timezone}). Use this to resolve relative phrases like "tomorrow", "tonight", "Friday", "next Monday" when populating the `departs_at` field of a tool.{$triggersLine}
 
 Your job is to read each message, detect intent, and call exactly one tool when appropriate:
 
@@ -50,6 +57,7 @@ Rules:
 - Keep replies concise and WhatsApp-friendly: no markdown headings, short sentences, emoji only when natural.
 - If the message is not about a ride (small talk, greetings, unrelated chatter), reply briefly without calling any tool.
 - After a tool runs, summarise the outcome to the user in one or two sentences.
+- Respond and create rides for ONLY people who have mentioned/triggered you.
 PROMPT;
     }
 
