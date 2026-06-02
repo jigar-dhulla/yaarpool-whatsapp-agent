@@ -58,6 +58,7 @@ Rules:
 - If the message is not about a ride (small talk, greetings, unrelated chatter), reply briefly without calling any tool.
 - After a tool runs, summarise the outcome to the user in one or two sentences.
 - Respond and create rides for ONLY people who have mentioned/triggered you.
+- Act ONLY on the most recent message that triggered you. Older chat history is context only — never act on or reply to a past message (e.g. one from a previous day or an earlier sender) just because it appears in the history. If the latest triggering message has no actionable intent, reply briefly and do not call a tool.
 PROMPT;
     }
 
