@@ -81,7 +81,7 @@ docker compose run --rm app php artisan wa:status
 docker compose logs -f wa-listen
 ```
 
-To pin a different `wacli` release, pass `--build-arg WACLI_VERSION=<version>` to `docker compose build`.
+The bundled `wacli` version is pinned by the `WACLI_VERSION` arg in the `Dockerfile` — the single source of truth for both local and production builds. To upgrade, bump that one line and rebuild; committing it to `main` rolls the new version out to production via the publish-image workflow. For a throwaway local test of another release without editing the `Dockerfile`, pass `--build-arg WACLI_VERSION=<version>` to `docker compose build`.
 
 ## Tests
 

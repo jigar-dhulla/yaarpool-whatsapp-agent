@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-ARG WACLI_VERSION=0.9.2
+ARG WACLI_VERSION=0.11.0
 
 FROM --platform=$BUILDPLATFORM debian:bookworm-slim AS wacli-fetch
 ARG TARGETARCH

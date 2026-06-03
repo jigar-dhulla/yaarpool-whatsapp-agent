@@ -3,8 +3,6 @@ name: yaarpool
 x-php: &php
   build:
     context: .
-    args:
-      WACLI_VERSION: "0.9.2"
   image: yaarpool/app:local
   working_dir: /app
   environment:
