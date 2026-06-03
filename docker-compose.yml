@@ -8,9 +8,10 @@ x-php: &php
   environment:
     WA_WACLI_BINARY: /usr/local/bin/wacli
     WA_WACLI_DATABASE: /root/.wacli/wacli.db
+    WA_WACLI_STORE: /root/.wacli
   volumes:
     - .:/app
-    - ${HOME}/.wacli:/root/.wacli
+    - wacli-store:/root/.wacli
 
 services:
   wacli:
@@ -27,7 +28,7 @@ services:
 
   wa-listen:
     <<: *php
-    command: ["php", "artisan", "wa:listen"]
+    command: ["php", "artisan", "wa:listen", "-vvv"]
     restart: unless-stopped
     depends_on:
       - wacli
@@ -36,3 +37,6 @@ services:
     <<: *php
     profiles: ["cli"]
     command: ["bash"]
+
+volumes:
+  wacli-store:
