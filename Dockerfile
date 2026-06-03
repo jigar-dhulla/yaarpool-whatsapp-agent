@@ -3,12 +3,13 @@
 ARG WACLI_VERSION=0.11.0
 
 FROM --platform=$BUILDPLATFORM debian:bookworm-slim AS wacli-fetch
+ARG TARGETOS
 ARG TARGETARCH
 ARG WACLI_VERSION
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl ca-certificates \
     && curl -fsSL \
-        "https://github.com/openclaw/wacli/releases/download/v${WACLI_VERSION}/wacli-linux-${TARGETARCH}.tar.gz" \
+        "https://github.com/openclaw/wacli/releases/download/v${WACLI_VERSION}/wacli_${WACLI_VERSION}_${TARGETOS}_${TARGETARCH}.tar.gz" \
         | tar -xz -C /tmp wacli \
     && chmod +x /tmp/wacli
 
