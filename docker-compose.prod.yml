@@ -20,6 +20,12 @@ x-php: &php
   restart: unless-stopped
 
 services:
+  web:
+    <<: *php
+    command: ["sh", "-c", "php artisan optimize && exec frankenphp php-server --listen :8080 --root public/"]
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+
   wacli:
     <<: *php
     command: ["wacli", "sync", "--follow", "--refresh-contacts", "--refresh-groups"]
