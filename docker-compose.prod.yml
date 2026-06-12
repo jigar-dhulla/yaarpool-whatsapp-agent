@@ -17,11 +17,15 @@ x-php: &php
     options:
       max-size: "10m"
       max-file: "5"
+  # The image healthcheck probes Caddy's admin endpoint (:2019), which
+  # php-server runs with admin disabled and workers never expose.
+  healthcheck:
+    disable: true
   restart: unless-stopped
 
 services:
   traefik:
-    image: traefik:v3.5
+    image: traefik:v3.7
     command:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
@@ -56,6 +60,12 @@ services:
     networks:
       - default
       - proxy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/up"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     labels:
       - traefik.enable=true
       - traefik.http.routers.yaarpool.rule=Host(`${WEB_HOST:-rideshare.ing}`) || Host(`www.${WEB_HOST:-rideshare.ing}`)
