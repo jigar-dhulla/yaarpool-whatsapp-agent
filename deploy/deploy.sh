@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
-# /opt/yaarpool/deploy.sh — pulled image rollout for production VPS.
-# Invoked by GitHub Actions over SSH after a successful publish-image build.
+# Pulled image rollout for the production VPS.
+# Synced and invoked by GitHub Actions over SSH after a successful publish-image build.
 
 set -euo pipefail
 
-cd /opt/yaarpool
+cd "$(dirname "$(realpath "$0")")"
+
+export COMPOSE_FILE=docker-compose.prod.yml
+
+echo "==> Validating compose file"
+docker compose config --quiet
 
 echo "==> Pulling latest images"
 docker compose pull --quiet
