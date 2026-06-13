@@ -49,6 +49,20 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Bot Contact
+    |--------------------------------------------------------------------------
+    |
+    | The bot's WhatsApp number, in international format with no spaces, dashes,
+    | or leading "+" (e.g. 15551234567). Used to build wa.me invite links on
+    | the marketing site. This is a personal number, so it lives only in .env
+    | and must never be committed to source control.
+    |
+    */
+
+    'number' => preg_replace('/\D/', '', (string) env('WA_PHONE_NUMBER')),
+
     'agents' => [
         [
             'agent' => YaarpoolAgent::class,
