@@ -17,6 +17,12 @@ set -euo pipefail
 
 cd "$(dirname "$(realpath "$0")")"
 
+# Compose interpolates the ${HOME}/.wacli bind mount, so HOME must be set even
+# when invoked from contexts that don't provide one (a systemd oneshot starts
+# with no HOME). Without this the mount collapses to /.wacli and wacli loses
+# its authenticated session. The SSH login shell already exports HOME=/root.
+export HOME="${HOME:-/root}"
+
 REPO="jigar-dhulla/yaarpool-whatsapp-agent"
 REF="${SSH_ORIGINAL_COMMAND:-main}"
 STATE_FILE=".deployed-digest"
