@@ -1,0 +1,10 @@
+[Unit]
+Description=Yaarpool deploy: poll GHCR for a new image every couple of minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=2min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

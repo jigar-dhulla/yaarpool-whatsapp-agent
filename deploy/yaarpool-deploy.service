@@ -1,0 +1,12 @@
+[Unit]
+Description=Yaarpool deploy: roll out the latest published image if it changed
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/yaarpool
+Environment=DEPLOY_CHECK_DIGEST=1
+ExecStart=/opt/yaarpool/deploy.sh
+TimeoutStartSec=600
