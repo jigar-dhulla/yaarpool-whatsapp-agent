@@ -30,6 +30,8 @@ If yaarpool needs behaviour the package doesn't support, raise it as a feature r
 
 Owner-only tools refuse the call unless both `chat_jid` and `sender_jid` on the ride match the inbound message; rides in other chats are treated as not-found rather than surfaced.
 
+Group defaults: each chat can have admin-configured defaults in the `group_settings` table (`App\Models\GroupSetting`, keyed by `chat_jid`) — a `default_from_location` (required) and an optional `default_to_location`. `ride_create` / `ride_request` make `from`/`to` optional in their schema and fall back to these defaults via `GroupSetting::forChat()`, asking the user only when a location is neither stated nor defaulted. Admins manage them with `php artisan group:settings`.
+
 Datetime convention: the LLM emits `when_text` (verbatim user phrasing, kept for manual verification) plus a parsed `departs_at` (ISO-8601, NOT NULL). The current date is injected into the agent's instructions so relative phrases like "tomorrow" resolve correctly. Schemas use `->format('date-time')`; handlers read via `$request->date('departs_at')` and catch `Carbon\Exceptions\InvalidFormatException` to return a clarifying message.
 
 To add a tool: create the class under `app/Ai/Tools/` and register it in `YaarpoolAgent::tools()` (pass `chatJid` / `senderJid` if it needs scoping). To add a whole new agent: `php artisan make:agent <Name>` and register the FQCN in `config/whatsapp-agent.php`. Discover JIDs with `php artisan wa:chats` / `wa:groups`; verify wiring with `wa:status`.
@@ -46,6 +48,7 @@ To add a tool: create the class under `app/Ai/Tools/` and register it in `Yaarpo
 | Format PHP (required before finalizing) | `vendor/bin/pint --dirty --format agent` |
 | WhatsApp listener daemon | `php artisan wa:listen` (`-vvv` shows scanned messages, `--once` for a single iteration) |
 | WhatsApp status / JID discovery | `php artisan wa:status` / `wa:chats` / `wa:groups` |
+| View/set a group's default origin & destination | `php artisan group:settings [chat] [--from=] [--to=] [--clear]` |
 | Tail logs | `php artisan pail` |
 
 ## Datastores

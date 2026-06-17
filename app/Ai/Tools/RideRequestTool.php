@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Ai\Tools;
 
 use App\Enums\RideType;
+use App\Models\GroupSetting;
 use App\Models\Ride;
 use Carbon\Exceptions\InvalidFormatException;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -40,13 +41,26 @@ class RideRequestTool implements Tool
 
         $seats = max(1, (int) ($request['seats'] ?? 1));
 
+        $settings = GroupSetting::forChat($this->chatJid);
+
+        $from = $request['from'] ?? $settings?->default_from_location;
+        $to = $request['to'] ?? $settings?->default_to_location;
+
+        if (blank($from)) {
+            return 'Where do you need to be picked up? This group has no default pickup location set.';
+        }
+
+        if (blank($to)) {
+            return 'Where are you heading to?';
+        }
+
         $ride = Ride::create([
             'type' => RideType::Request,
             'chat_jid' => $this->chatJid,
             'sender_jid' => $this->senderJid,
             'sender_name' => $this->senderName,
-            'from_location' => (string) $request['from'],
-            'to_location' => (string) $request['to'],
+            'from_location' => (string) $from,
+            'to_location' => (string) $to,
             'when_text' => (string) $request['when_text'],
             'departs_at' => $departsAt,
             'recurrence_days' => Ride::normalizeRecurrenceDays($request['repeat_days'] ?? null),
@@ -72,11 +86,9 @@ class RideRequestTool implements Tool
     {
         return [
             'from' => $schema->string()
-                ->description('Pickup location as stated by the passenger (e.g. "Andheri East", "Sector 21 gate").')
-                ->required(),
+                ->description('Pickup location as stated by the passenger (e.g. "Andheri East", "Sector 21 gate"). Omit when the passenger does not name a pickup point — the group\'s default origin will be assumed.'),
             'to' => $schema->string()
-                ->description('Drop-off location as stated by the passenger.')
-                ->required(),
+                ->description('Drop-off location as stated by the passenger. Omit when the passenger does not name a destination — the group\'s default destination, if configured, will be assumed.'),
             'when_text' => $schema->string()
                 ->description('The passenger\'s exact phrasing of when they need the ride, copied verbatim (e.g. "tomorrow 8am", "Fri evening"). Used for verification.')
                 ->required(),

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Ai\Tools;
 
 use App\Enums\RideType;
+use App\Models\GroupSetting;
 use App\Models\Ride;
 use Carbon\Exceptions\InvalidFormatException;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -38,13 +39,26 @@ class RideCreateTool implements Tool
             return 'I could not work out the departure date and time from that. Could you be more specific (e.g. "today 6pm", "Sat 9:30am")?';
         }
 
+        $settings = GroupSetting::forChat($this->chatJid);
+
+        $from = $request['from'] ?? $settings?->default_from_location;
+        $to = $request['to'] ?? $settings?->default_to_location;
+
+        if (blank($from)) {
+            return 'Where are you starting from? This group has no default pickup location set.';
+        }
+
+        if (blank($to)) {
+            return 'Where are you heading to?';
+        }
+
         $ride = Ride::create([
             'type' => RideType::Offer,
             'chat_jid' => $this->chatJid,
             'sender_jid' => $this->senderJid,
             'sender_name' => $this->senderName,
-            'from_location' => (string) $request['from'],
-            'to_location' => (string) $request['to'],
+            'from_location' => (string) $from,
+            'to_location' => (string) $to,
             'when_text' => (string) $request['when_text'],
             'departs_at' => $departsAt,
             'recurrence_days' => Ride::normalizeRecurrenceDays($request['repeat_days'] ?? null),
@@ -74,11 +88,9 @@ class RideCreateTool implements Tool
     {
         return [
             'from' => $schema->string()
-                ->description('Origin of the trip as stated by the driver.')
-                ->required(),
+                ->description('Origin of the trip as stated by the driver. Omit when the driver does not name a pickup point — the group\'s default origin will be assumed.'),
             'to' => $schema->string()
-                ->description('Destination of the trip.')
-                ->required(),
+                ->description('Destination of the trip. Omit when the driver does not name a destination — the group\'s default destination, if configured, will be assumed.'),
             'when_text' => $schema->string()
                 ->description('The driver\'s exact phrasing of when they depart, copied verbatim (e.g. "today 6pm", "Sat 9:30am"). Used for verification.')
                 ->required(),
