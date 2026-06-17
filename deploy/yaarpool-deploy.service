@@ -7,6 +7,10 @@ Requires=docker.service
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/yaarpool
+# A systemd oneshot starts with no HOME; without it, compose interpolates the
+# ${HOME}/.wacli bind mount to /.wacli and wacli loses its session. Pin it to
+# root's home so the mount matches the SSH login-shell deploy path.
+Environment=HOME=/root
 Environment=DEPLOY_CHECK_DIGEST=1
 ExecStart=/opt/yaarpool/deploy.sh
 TimeoutStartSec=600
