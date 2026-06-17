@@ -20,6 +20,7 @@ it('persists a ride request with both raw text and parsed datetime', function ()
     $tool = new RideRequestTool(
         chatJid: '120363409213306573@g.us',
         senderJid: '919999999999@s.whatsapp.net',
+        senderName: 'Asha',
     );
 
     $reply = $tool->handle(new Request([
@@ -37,6 +38,7 @@ it('persists a ride request with both raw text and parsed datetime', function ()
     expect($ride->type)->toBe(RideType::Request)
         ->and($ride->chat_jid)->toBe('120363409213306573@g.us')
         ->and($ride->sender_jid)->toBe('919999999999@s.whatsapp.net')
+        ->and($ride->sender_name)->toBe('Asha')
         ->and($ride->from_location)->toBe('Andheri East')
         ->and($ride->to_location)->toBe('BKC')
         ->and($ride->when_text)->toBe('tomorrow 8am')

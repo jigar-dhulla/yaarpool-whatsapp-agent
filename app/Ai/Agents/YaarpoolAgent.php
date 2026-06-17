@@ -9,6 +9,7 @@ use App\Ai\Tools\RideDeleteTool;
 use App\Ai\Tools\RideListTool;
 use App\Ai\Tools\RideRequestTool;
 use App\Ai\Tools\RideUpdateTool;
+use App\Models\User;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use JigarDhulla\LaravelWhatsApp\Traits\RemembersWhatsAppConversations;
@@ -22,7 +23,25 @@ use Stringable;
 class YaarpoolAgent implements Agent, Conversational, HasTools
 {
     use Promptable;
-    use RemembersWhatsAppConversations;
+    use RemembersWhatsAppConversations {
+        forChat as rememberForChat;
+    }
+
+    /**
+     * Bind the conversation to a chat and, when a sender is known, record them
+     * as a user so everyone who interacts with the bot has an account. Runs on
+     * every triggering message, not just ride creation.
+     */
+    public function forChat(string $chatJid, ?string $senderJid = null, ?string $senderName = null): static
+    {
+        $this->rememberForChat($chatJid, $senderJid, $senderName);
+
+        if ($senderJid !== null) {
+            User::registerFromWhatsApp($senderJid, $senderName);
+        }
+
+        return $this;
+    }
 
     public function instructions(): Stringable|string
     {
@@ -72,8 +91,8 @@ PROMPT;
     public function tools(): iterable
     {
         return [
-            new RideRequestTool(chatJid: $this->chatJid, senderJid: $this->senderJid),
-            new RideCreateTool(chatJid: $this->chatJid, senderJid: $this->senderJid),
+            new RideRequestTool(chatJid: $this->chatJid, senderJid: $this->senderJid, senderName: $this->senderName),
+            new RideCreateTool(chatJid: $this->chatJid, senderJid: $this->senderJid, senderName: $this->senderName),
             new RideListTool(chatJid: $this->chatJid),
             new RideUpdateTool(chatJid: $this->chatJid, senderJid: $this->senderJid),
             new RideDeleteTool(chatJid: $this->chatJid, senderJid: $this->senderJid),
