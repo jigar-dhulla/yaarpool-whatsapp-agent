@@ -125,6 +125,7 @@ it('lists upcoming rides scoped to the current chat', function () {
 
     Ride::factory()->offer()->create([
         'chat_jid' => $chatJid,
+        'sender_name' => 'Asha',
         'from_location' => 'Pune',
         'to_location' => 'Mumbai',
         'when_text' => 'Sat 9:30am',
@@ -153,6 +154,7 @@ it('lists upcoming rides scoped to the current chat', function () {
         ->toContain('Andheri East')
         ->toContain('BKC')
         ->toContain('Pune → Mumbai')
+        ->toContain('by Asha')
         ->toContain('₹500')
         ->not->toContain('Delhi')
         ->not->toContain('Bengaluru');

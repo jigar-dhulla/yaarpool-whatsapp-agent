@@ -57,9 +57,10 @@ class RideListTool implements Tool
         }
 
         return $rides->map(fn (Ride $ride) => sprintf(
-            '#%d %s: %s → %s, %s%s, %d seat%s%s',
+            '#%d %s by %s: %s → %s, %s%s, %d seat%s%s',
             $ride->id,
             $ride->type === RideType::Offer ? 'OFFER' : 'REQUEST',
+            $ride->sender_name,
             $ride->from_location,
             $ride->to_location,
             $ride->isRecurring()
