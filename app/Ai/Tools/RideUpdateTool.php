@@ -74,6 +74,10 @@ class RideUpdateTool implements Tool
             $changes['seats'] = max(1, (int) $request['seats']);
         }
 
+        if (isset($request['repeat_days'])) {
+            $changes['recurrence_days'] = Ride::normalizeRecurrenceDays($request['repeat_days']);
+        }
+
         foreach (['price_per_seat', 'vehicle', 'notes'] as $key) {
             if (isset($request[$key])) {
                 $changes[$key] = (string) $request[$key];
@@ -86,12 +90,15 @@ class RideUpdateTool implements Tool
 
         $ride->update($changes);
 
+        $repeats = $ride->isRecurring() ? ', repeats '.$ride->recurrenceLabel() : '';
+
         return sprintf(
-            'Ride #%d updated: %s → %s, %s, %d seat%s.',
+            'Ride #%d updated: %s → %s, %s%s, %d seat%s.',
             $ride->id,
             $ride->from_location,
             $ride->to_location,
             $ride->when_text,
+            $repeats,
             $ride->seats,
             $ride->seats === 1 ? '' : 's',
         );
@@ -120,6 +127,11 @@ class RideUpdateTool implements Tool
                 ->description('New seat count.')
                 ->min(1)
                 ->max(8),
+            'repeat_days' => $schema->array()
+                ->items($schema->string()->enum([
+                    'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 'daily',
+                ]))
+                ->description('New repeat schedule. Use ["daily"] for every day, or list specific weekdays, e.g. ["monday","wednesday","friday"]. Pass an empty array [] to make a recurring ride one-off again. Omit entirely if the schedule is unchanged.'),
             'price_per_seat' => $schema->string()
                 ->description('New per-seat price (offers only). Omit if unchanged.'),
             'vehicle' => $schema->string()

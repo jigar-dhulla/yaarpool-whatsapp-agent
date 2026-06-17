@@ -347,16 +347,129 @@ it('refuses to mutate rides when the sender JID is not known', function () {
         ->and(Ride::find($ride->id))->not->toBeNull();
 });
 
+it('stores specific weekdays as a recurring ride request', function () {
+    $reply = (new RideRequestTool(
+        chatJid: '120363409213306573@g.us',
+        senderJid: '919999999999@s.whatsapp.net',
+    ))->handle(new Request([
+        'from' => 'Andheri East',
+        'to' => 'BKC',
+        'when_text' => 'Mon, Wed and Fri at 8am',
+        'departs_at' => '2026-06-17T08:00:00',
+        'seats' => 1,
+        'repeat_days' => ['monday', 'wednesday', 'friday'],
+    ]));
+
+    $ride = Ride::sole();
+    expect($ride->recurrence_days)->toBe(['monday', 'wednesday', 'friday'])
+        ->and($ride->isRecurring())->toBeTrue()
+        ->and($ride->recurrenceLabel())->toBe('Mon/Wed/Fri')
+        ->and((string) $reply)->toContain('repeats Mon/Wed/Fri');
+});
+
+it('stores a daily ride offer as all seven weekdays', function () {
+    $reply = (new RideCreateTool(
+        chatJid: '120363409213306573@g.us',
+        senderJid: '918888888888@s.whatsapp.net',
+    ))->handle(new Request([
+        'from' => 'Pune',
+        'to' => 'Mumbai',
+        'when_text' => 'every day 7am',
+        'departs_at' => '2026-06-18T07:00:00',
+        'seats' => 3,
+        'repeat_days' => ['daily'],
+    ]));
+
+    $ride = Ride::sole();
+    expect($ride->recurrence_days)->toBe(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'])
+        ->and($ride->recurrenceLabel())->toBe('daily')
+        ->and((string) $reply)->toContain('repeats daily');
+});
+
+it('orders weekdays Monday to Sunday regardless of input order', function () {
+    (new RideRequestTool)->handle(new Request([
+        'from' => 'A',
+        'to' => 'B',
+        'when_text' => 'Fri, Mon, Wed',
+        'departs_at' => '2026-06-18T08:00:00',
+        'repeat_days' => ['friday', 'monday', 'wednesday', 'monday'],
+    ]));
+
+    expect(Ride::sole()->recurrence_days)->toBe(['monday', 'wednesday', 'friday']);
+});
+
+it('treats a ride with no repeat_days as a one-off', function () {
+    (new RideRequestTool)->handle(new Request([
+        'from' => 'A',
+        'to' => 'B',
+        'when_text' => 'tomorrow 8am',
+        'departs_at' => '2026-06-18T08:00:00',
+    ]));
+
+    $ride = Ride::sole();
+    expect($ride->recurrence_days)->toBeNull()
+        ->and($ride->isRecurring())->toBeFalse();
+});
+
+it('lets the owner change and clear a ride recurrence', function () {
+    $chatJid = '120363409213306573@g.us';
+    $senderJid = '919999999999@s.whatsapp.net';
+
+    $ride = Ride::factory()->request()->recurring(['monday', 'wednesday', 'friday'])->create([
+        'chat_jid' => $chatJid,
+        'sender_jid' => $senderJid,
+    ]);
+
+    (new RideUpdateTool(chatJid: $chatJid, senderJid: $senderJid))->handle(new Request([
+        'ride_id' => $ride->id,
+        'repeat_days' => ['daily'],
+    ]));
+    expect($ride->fresh()->recurrence_days)->toBe(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']);
+
+    (new RideUpdateTool(chatJid: $chatJid, senderJid: $senderJid))->handle(new Request([
+        'ride_id' => $ride->id,
+        'repeat_days' => [],
+    ]));
+    expect($ride->fresh()->recurrence_days)->toBeNull()
+        ->and($ride->fresh()->isRecurring())->toBeFalse();
+});
+
+it('lists recurring rides even when their next departure has passed', function () {
+    $chatJid = '120363409213306573@g.us';
+
+    Ride::factory()->offer()->recurring(['monday', 'wednesday', 'friday'])->create([
+        'chat_jid' => $chatJid,
+        'from_location' => 'Pune',
+        'to_location' => 'Mumbai',
+        'when_text' => 'Mon/Wed/Fri 7am',
+        'departs_at' => Carbon::now()->subDay(),
+    ]);
+
+    Ride::factory()->offer()->create([
+        'chat_jid' => $chatJid,
+        'from_location' => 'Bengaluru',
+        'to_location' => 'Mysuru',
+        'departs_at' => Carbon::now()->subDay(),
+    ]);
+
+    $reply = (string) (new RideListTool(chatJid: $chatJid))->handle(new Request([]));
+
+    expect($reply)
+        ->toContain('Pune → Mumbai')
+        ->toContain('repeats Mon/Wed/Fri')
+        ->not->toContain('Bengaluru');
+});
+
 it('exposes the expected names and schema keys to the agent', function () {
     $schema = new JsonSchemaTypeFactory;
 
     expect((new RideRequestTool)->name())->toBe('ride_request')
         ->and(array_keys((new RideRequestTool)->schema($schema)))
-        ->toBe(['from', 'to', 'when_text', 'departs_at', 'seats', 'notes']);
+        ->toBe(['from', 'to', 'when_text', 'departs_at', 'seats', 'repeat_days', 'notes']);
 
     expect((new RideCreateTool)->name())->toBe('ride_create')
         ->and(array_keys((new RideCreateTool)->schema($schema)))
-        ->toBe(['from', 'to', 'when_text', 'departs_at', 'seats', 'price_per_seat', 'vehicle', 'notes']);
+        ->toBe(['from', 'to', 'when_text', 'departs_at', 'seats', 'repeat_days', 'price_per_seat', 'vehicle', 'notes']);
 
     expect((new RideListTool)->name())->toBe('ride_list')
         ->and(array_keys((new RideListTool)->schema($schema)))
@@ -364,7 +477,7 @@ it('exposes the expected names and schema keys to the agent', function () {
 
     expect((new RideUpdateTool)->name())->toBe('ride_update')
         ->and(array_keys((new RideUpdateTool)->schema($schema)))
-        ->toBe(['ride_id', 'from', 'to', 'when_text', 'departs_at', 'seats', 'price_per_seat', 'vehicle', 'notes']);
+        ->toBe(['ride_id', 'from', 'to', 'when_text', 'departs_at', 'seats', 'repeat_days', 'price_per_seat', 'vehicle', 'notes']);
 
     expect((new RideDeleteTool)->name())->toBe('ride_delete')
         ->and(array_keys((new RideDeleteTool)->schema($schema)))

@@ -49,16 +49,20 @@ class RideRequestTool implements Tool
             'to_location' => (string) $request['to'],
             'when_text' => (string) $request['when_text'],
             'departs_at' => $departsAt,
+            'recurrence_days' => Ride::normalizeRecurrenceDays($request['repeat_days'] ?? null),
             'seats' => $seats,
             'notes' => $request['notes'] ?? null,
         ]);
 
+        $repeats = $ride->isRecurring() ? ', repeats '.$ride->recurrenceLabel() : '';
+
         return sprintf(
-            'Ride request #%d noted: %s → %s, %s, %d seat%s. Drivers in the group will see it.',
+            'Ride request #%d noted: %s → %s, %s%s, %d seat%s. Drivers in the group will see it.',
             $ride->id,
             $ride->from_location,
             $ride->to_location,
             $ride->when_text,
+            $repeats,
             $ride->seats,
             $ride->seats === 1 ? '' : 's',
         );
@@ -84,6 +88,11 @@ class RideRequestTool implements Tool
                 ->description('Number of seats the passenger needs. Defaults to 1.')
                 ->min(1)
                 ->max(8),
+            'repeat_days' => $schema->array()
+                ->items($schema->string()->enum([
+                    'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 'daily',
+                ]))
+                ->description('Set this only when the passenger wants the ride to repeat. Use ["daily"] for every day, or list the specific weekdays, e.g. ["monday","wednesday","friday"]. Omit entirely for a one-off ride. Still set `departs_at` to the next matching occurrence.'),
             'notes' => $schema->string()
                 ->description('Any extra context the passenger shared — luggage, flexibility, contact preferences.'),
         ];

@@ -29,11 +29,20 @@ class RideFactory extends Factory
             'to_location' => fake()->city(),
             'when_text' => fake()->randomElement(['tomorrow 8am', 'tonight 9pm', 'Fri evening', 'Sat 10:30am']),
             'departs_at' => $departsAt,
+            'recurrence_days' => null,
             'seats' => fake()->numberBetween(1, 4),
             'price_per_seat' => null,
             'vehicle' => null,
             'notes' => null,
         ];
+    }
+
+    /**
+     * @param  array<int, string>  $days
+     */
+    public function recurring(array $days = ['monday', 'wednesday', 'friday']): static
+    {
+        return $this->state(fn () => ['recurrence_days' => $days]);
     }
 
     public function request(): static

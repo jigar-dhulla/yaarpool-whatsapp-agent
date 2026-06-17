@@ -34,7 +34,10 @@ class RideListTool implements Tool
         $limit = max(1, min(20, (int) ($request['limit'] ?? 5)));
 
         $query = Ride::query()
-            ->where('departs_at', '>=', Carbon::now())
+            ->where(function ($q) {
+                $q->where('departs_at', '>=', Carbon::now())
+                    ->orWhereNotNull('recurrence_days');
+            })
             ->orderBy('departs_at');
 
         if ($this->chatJid !== null) {
@@ -52,12 +55,13 @@ class RideListTool implements Tool
         }
 
         return $rides->map(fn (Ride $ride) => sprintf(
-            '#%d %s: %s → %s, %s, %d seat%s%s',
+            '#%d %s: %s → %s, %s%s, %d seat%s%s',
             $ride->id,
             $ride->type === RideType::Offer ? 'OFFER' : 'REQUEST',
             $ride->from_location,
             $ride->to_location,
             $ride->when_text,
+            $ride->isRecurring() ? ' (repeats '.$ride->recurrenceLabel().')' : '',
             $ride->seats,
             $ride->seats === 1 ? '' : 's',
             $ride->price_per_seat ? ' @ '.$ride->price_per_seat : '',
