@@ -32,13 +32,13 @@ class RideListTool implements Tool
     {
         $type = $this->normalizeType($request['type'] ?? null);
         $limit = max(1, min(20, (int) ($request['limit'] ?? 5)));
+        $now = Carbon::now();
 
         $query = Ride::query()
-            ->where(function ($q) {
-                $q->where('departs_at', '>=', Carbon::now())
+            ->where(function ($q) use ($now) {
+                $q->where('departs_at', '>=', $now)
                     ->orWhereNotNull('recurrence_days');
-            })
-            ->orderBy('departs_at');
+            });
 
         if ($this->chatJid !== null) {
             $query->where('chat_jid', $this->chatJid);
@@ -48,7 +48,9 @@ class RideListTool implements Tool
             $query->where('type', $type);
         }
 
-        $rides = $query->limit($limit)->get();
+        $rides = $query->get()
+            ->sortBy(fn (Ride $ride): Carbon => $ride->nextOccurrence($now))
+            ->take($limit);
 
         if ($rides->isEmpty()) {
             return 'No upcoming rides found in this chat.';
@@ -60,7 +62,9 @@ class RideListTool implements Tool
             $ride->type === RideType::Offer ? 'OFFER' : 'REQUEST',
             $ride->from_location,
             $ride->to_location,
-            $ride->when_text,
+            $ride->isRecurring()
+                ? $ride->nextOccurrence($now)->format('D j M, H:i')
+                : $ride->when_text,
             $ride->isRecurring() ? ' (repeats '.$ride->recurrenceLabel().')' : '',
             $ride->seats,
             $ride->seats === 1 ? '' : 's',

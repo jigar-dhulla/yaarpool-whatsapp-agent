@@ -9,6 +9,7 @@ use App\Enums\Weekday;
 use Database\Factories\RideFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class Ride extends Model
@@ -70,6 +71,33 @@ class Ride extends Model
     public function isRecurring(): bool
     {
         return ! empty($this->recurrence_days);
+    }
+
+    /**
+     * The next time this ride departs. A one-off ride departs once at
+     * `departs_at`; a recurring ride departs on its next matching weekday at the
+     * same time of day, so it never lingers in the past showing a stale date.
+     */
+    public function nextOccurrence(?Carbon $from = null): Carbon
+    {
+        if (! $this->isRecurring()) {
+            return $this->departs_at;
+        }
+
+        $from ??= Carbon::now();
+
+        $candidate = $from->copy()->setTimeFrom($this->departs_at);
+
+        for ($day = 0; $day < 7; $day++) {
+            if ($candidate->greaterThanOrEqualTo($from)
+                && in_array(strtolower($candidate->format('l')), $this->recurrence_days, true)) {
+                return $candidate;
+            }
+
+            $candidate = $candidate->addDay();
+        }
+
+        return $this->departs_at;
     }
 
     /**

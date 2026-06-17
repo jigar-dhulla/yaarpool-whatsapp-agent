@@ -434,17 +434,21 @@ it('lets the owner change and clear a ride recurrence', function () {
         ->and($ride->fresh()->isRecurring())->toBeFalse();
 });
 
-it('lists recurring rides even when their next departure has passed', function () {
+it('lists recurring rides by their next occurrence, never a stale past date', function () {
+    Carbon::setTestNow('2026-06-17 09:00:00'); // a Wednesday
+
     $chatJid = '120363409213306573@g.us';
 
+    // Recurring offer whose stored departs_at is in the past.
     Ride::factory()->offer()->recurring(['monday', 'wednesday', 'friday'])->create([
         'chat_jid' => $chatJid,
         'from_location' => 'Pune',
         'to_location' => 'Mumbai',
         'when_text' => 'Mon/Wed/Fri 7am',
-        'departs_at' => Carbon::now()->subDay(),
+        'departs_at' => Carbon::parse('2026-06-01 07:00:00'),
     ]);
 
+    // One-off offer in the past should not appear.
     Ride::factory()->offer()->create([
         'chat_jid' => $chatJid,
         'from_location' => 'Bengaluru',
@@ -454,10 +458,37 @@ it('lists recurring rides even when their next departure has passed', function (
 
     $reply = (string) (new RideListTool(chatJid: $chatJid))->handle(new Request([]));
 
+    // Today is Wed 09:00 but the ride departs 07:00, so the next occurrence is Friday 19 Jun.
     expect($reply)
         ->toContain('Pune → Mumbai')
+        ->toContain('Fri 19 Jun, 07:00')
         ->toContain('repeats Mon/Wed/Fri')
+        ->not->toContain('2026-06-01')
+        ->not->toContain('Mon/Wed/Fri 7am')
         ->not->toContain('Bengaluru');
+
+    Carbon::setTestNow();
+});
+
+it('computes the next occurrence later today when the time has not yet passed', function () {
+    Carbon::setTestNow('2026-06-17 06:00:00'); // Wednesday, before 07:00
+
+    $ride = Ride::factory()->recurring(['monday', 'wednesday', 'friday'])->create([
+        'departs_at' => Carbon::parse('2026-06-01 07:00:00'),
+    ]);
+
+    expect($ride->nextOccurrence()->toDateTimeString())->toBe('2026-06-17 07:00:00');
+
+    Carbon::setTestNow();
+});
+
+it('returns departs_at unchanged as the next occurrence for a one-off ride', function () {
+    $ride = Ride::factory()->create([
+        'departs_at' => Carbon::parse('2026-07-01 18:00:00'),
+        'recurrence_days' => null,
+    ]);
+
+    expect($ride->nextOccurrence()->toDateTimeString())->toBe('2026-07-01 18:00:00');
 });
 
 it('exposes the expected names and schema keys to the agent', function () {
