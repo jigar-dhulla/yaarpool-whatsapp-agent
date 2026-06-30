@@ -7,9 +7,10 @@ x-php: &php
   environment:
     WA_WACLI_BINARY: /usr/local/bin/wacli
     WA_WACLI_DATABASE: /root/.wacli/wacli.db
+    DB_DATABASE: /app/database/data/database.sqlite
   volumes:
     - ./.env:/app/.env
-    - app-db:/app/database
+    - app-db:/app/database/data
     - app-storage:/app/storage
     - ${HOME}/.wacli:/root/.wacli
   logging:
