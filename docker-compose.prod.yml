@@ -8,6 +8,7 @@ x-php: &php
     WA_WACLI_BINARY: /usr/local/bin/wacli
     WA_WACLI_DATABASE: /root/.wacli/wacli.db
     DB_DATABASE: /app/database/data/database.sqlite
+    DB_QUEUE_RETRY_AFTER: 180
   volumes:
     - ./.env:/app/.env
     - app-db:/app/database/data
@@ -80,7 +81,7 @@ services:
 
   queue:
     <<: *php
-    command: ["php", "artisan", "queue:work", "--tries=1", "--timeout=0"]
+    command: ["php", "artisan", "queue:work", "--tries=1", "--timeout=120"]
     depends_on:
       - wacli
 
