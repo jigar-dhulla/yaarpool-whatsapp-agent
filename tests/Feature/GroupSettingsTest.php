@@ -76,7 +76,7 @@ it('asks for a pickup location when none is given and no group default exists', 
     ]));
 
     expect(Ride::count())->toBe(0)
-        ->and((string) $reply)->toContain('no default pickup location');
+        ->and((string) $reply)->toContain('default pickup location');
 });
 
 it('asks for a destination when none is given and no group default destination exists', function () {

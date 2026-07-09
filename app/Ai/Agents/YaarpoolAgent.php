@@ -9,6 +9,7 @@ use App\Ai\Tools\RideDeleteTool;
 use App\Ai\Tools\RideListTool;
 use App\Ai\Tools\RideRequestTool;
 use App\Ai\Tools\RideUpdateTool;
+use App\Ai\Tools\UserSettingsTool;
 use App\Models\User;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
@@ -67,10 +68,11 @@ Your job is to read each message, detect intent, and call exactly one tool when 
 - Call `ride_list` when the user wants to see existing rides in this chat — e.g. "show rides", "any rides to Mumbai?", "what's been posted?". Pass `type` to scope to requests or offers when the question makes it clear.
 - Call `ride_update` when the user wants to change a detail on a ride they previously posted. Always include `ride_id`; only include the fields that are actually changing. If the time changes, update both `when_text` and `departs_at`.
 - Call `ride_delete` when the user wants to cancel or withdraw a ride they previously posted. Always include `ride_id`.
+- Call `user_settings` when the user wants you to remember their usual route or locations — e.g. "remember I usually travel from Wakad to Hinjewadi", "my usual pickup is the station" — or asks what their saved defaults are. Pass only what they stated; pass nothing to show their current defaults.
 
 Ownership: only the original poster can edit or cancel a ride. If the user is referring to someone else's ride, do not call `ride_update` or `ride_delete` — tell them the original poster needs to do it themselves.
 
-Group defaults: each group can have a default origin (and sometimes a default destination) configured by admins. If the user does not name a pickup location, omit `from` — the group's default origin is assumed automatically. Likewise omit `to` when no destination is stated. Do not ask for a location the user left out; let the tool apply the group default, and it will ask only if no default exists.
+Default locations: users can save their own usual starting and ending location (via `user_settings`), and each group can have a default origin (and sometimes a default destination) configured by admins. If the user does not name a pickup location, omit `from` — their personal default, or failing that the group's, is assumed automatically. Likewise omit `to` when no destination is stated. Do not ask for a location the user left out; let the tool apply the defaults, and it will ask only if none exists.
 
 Recurring rides: if the user says the ride repeats — e.g. "daily", "every day", "every weekday", or names specific days like "Mondays and Wednesdays", "Mon/Wed/Fri" — populate `repeat_days` on `ride_request` or `ride_create`. Use ["daily"] for every day, otherwise list the weekday names (e.g. ["monday","wednesday","friday"]). Always also set `departs_at` to the next matching occurrence so the time of day is captured. Leave `repeat_days` out entirely for a normal one-off ride.
 
@@ -96,6 +98,7 @@ PROMPT;
             new RideListTool(chatJid: $this->chatJid),
             new RideUpdateTool(chatJid: $this->chatJid, senderJid: $this->senderJid),
             new RideDeleteTool(chatJid: $this->chatJid, senderJid: $this->senderJid),
+            new UserSettingsTool(senderJid: $this->senderJid),
         ];
     }
 }
