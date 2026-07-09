@@ -8,10 +8,15 @@ use Illuminate\Support\Facades\Hash;
 
 uses(RefreshDatabase::class);
 
-it('renders the login screen', function () {
-    $this->get(route('login'))
+it('renders the login screen at /admin/login', function () {
+    $this->get('/admin/login')
         ->assertOk()
         ->assertSee('Log in');
+});
+
+it('does not serve the old /login path', function () {
+    $this->get('/login')->assertNotFound();
+    $this->post('/login')->assertNotFound();
 });
 
 it('does not expose a registration page', function () {
@@ -46,7 +51,7 @@ it('logs in with valid credentials', function () {
     $this->post(route('login'), [
         'email' => $user->email,
         'password' => 'password',
-    ])->assertRedirect(route('failed-jobs.index'));
+    ])->assertRedirect(route('admin.dashboard'));
 
     $this->assertAuthenticatedAs($user);
 });
@@ -73,7 +78,7 @@ it('logs the user out', function () {
 it('redirects authenticated users away from the login screen', function () {
     $this->actingAs(User::factory()->create())
         ->get(route('login'))
-        ->assertRedirect('/failed-jobs');
+        ->assertRedirect(route('admin.dashboard'));
 });
 
 it('redirects guests to the login screen from the failed jobs dashboard', function () {

@@ -46,7 +46,7 @@ class UserRegisterCommand extends Command
 
         $user = User::create($validator->validated());
 
-        $this->info(sprintf('Registered %s <%s>. They can now log in at /login.', $user->name, $user->email));
+        $this->info(sprintf('Registered %s <%s>. They can now log in at /admin/login.', $user->name, $user->email));
 
         return self::SUCCESS;
     }
