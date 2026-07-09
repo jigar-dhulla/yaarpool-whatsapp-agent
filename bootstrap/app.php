@@ -11,6 +11,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->redirectUsersTo('/failed-jobs');
+
         // TLS terminates at Traefik; trust X-Forwarded-* from private
         // (Docker network) addresses so generated URLs use https.
         $middleware->trustProxies(at: [

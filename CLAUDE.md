@@ -49,6 +49,7 @@ To add a tool: create the class under `app/Ai/Tools/` and register it in `Yaarpo
 | WhatsApp listener daemon | `php artisan wa:listen` (`-vvv` shows scanned messages, `--once` for a single iteration) |
 | WhatsApp status / JID discovery | `php artisan wa:status` / `wa:chats` / `wa:groups` |
 | View/set a group's default origin & destination | `php artisan group:settings [chat] [--from=] [--to=] [--clear]` |
+| Register a dashboard user (no public sign-up) | `php artisan user:register [name] [email]` (prompts for password) |
 | Tail logs | `php artisan pail` |
 
 ## Datastores
