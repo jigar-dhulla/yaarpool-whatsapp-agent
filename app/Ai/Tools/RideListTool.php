@@ -57,7 +57,7 @@ class RideListTool implements Tool
         }
 
         return $rides->map(fn (Ride $ride) => sprintf(
-            '#%d %s by %s: %s → %s, %s%s, %d seat%s%s',
+            '#%d %s by %s: %s → %s, %s%s, %s%s',
             $ride->id,
             $ride->type === RideType::Offer ? 'OFFER' : 'REQUEST',
             $ride->sender_name,
@@ -67,10 +67,26 @@ class RideListTool implements Tool
                 ? $ride->nextOccurrence($now)->format('D j M, H:i')
                 : $ride->when_text,
             $ride->isRecurring() ? ' (repeats '.$ride->recurrenceLabel().')' : '',
-            $ride->seats,
-            $ride->seats === 1 ? '' : 's',
+            $this->seatsLabel($ride),
             $ride->price_per_seat ? ' @ '.$ride->price_per_seat : '',
         ))->implode("\n");
+    }
+
+    /**
+     * Offers show how many seats are still open (joins reduce it); requests
+     * show how many seats the passenger needs.
+     */
+    private function seatsLabel(Ride $ride): string
+    {
+        if ($ride->type !== RideType::Offer) {
+            return sprintf('%d seat%s', $ride->seats, $ride->seats === 1 ? '' : 's');
+        }
+
+        $left = $ride->seatsAvailable();
+
+        return $left === 0
+            ? 'FULL'
+            : sprintf('%d seat%s left', $left, $left === 1 ? '' : 's');
     }
 
     /**

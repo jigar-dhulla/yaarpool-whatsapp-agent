@@ -6,6 +6,7 @@ namespace App\Ai\Agents;
 
 use App\Ai\Tools\RideCreateTool;
 use App\Ai\Tools\RideDeleteTool;
+use App\Ai\Tools\RideJoinTool;
 use App\Ai\Tools\RideListTool;
 use App\Ai\Tools\RideRequestTool;
 use App\Ai\Tools\RideUpdateTool;
@@ -66,6 +67,7 @@ Your job is to read each message, detect intent, and call exactly one tool when 
 - Call `ride_request` when the user is asking for a ride / looking for a lift / wants to be picked up.
 - Call `ride_create` when the user is offering a ride / publishing a trip they are driving / has empty seats to share.
 - Call `ride_list` when the user wants to see existing rides in this chat — e.g. "show rides", "any rides to Mumbai?", "what's been posted?". Pass `type` to scope to requests or offers when the question makes it clear.
+- Call `ride_join` when the user wants a seat on a ride someone else offered — e.g. "count me in", "I'll join", "book me a seat on ride 7", "I'm in for Asha's ride". Identify the ride like this: if the user gave a ride number, or exactly one ride is clearly meant from the recent conversation (bot replies include #id), pass `ride_id`. Otherwise do NOT guess an id — pass the hints they gave (`from`, `to`, `poster_name`) and the tool will find the ride or reply with a numbered list so the user can pick. Pass `seats` greater than 1 only when the user brings company ("me +1" is 2).
 - Call `ride_update` when the user wants to change a detail on a ride they previously posted. Always include `ride_id`; only include the fields that are actually changing. If the time changes, update both `when_text` and `departs_at`.
 - Call `ride_delete` when the user wants to cancel or withdraw a ride they previously posted. Always include `ride_id`.
 - Call `user_settings` when the user wants you to remember their usual route or locations — e.g. "remember I usually travel from Wakad to Hinjewadi", "my usual pickup is the station" — or asks what their saved defaults are. Pass only what they stated; pass nothing to show their current defaults.
@@ -96,6 +98,7 @@ PROMPT;
             new RideRequestTool(chatJid: $this->chatJid, senderJid: $this->senderJid, senderName: $this->senderName),
             new RideCreateTool(chatJid: $this->chatJid, senderJid: $this->senderJid, senderName: $this->senderName),
             new RideListTool(chatJid: $this->chatJid),
+            new RideJoinTool(chatJid: $this->chatJid, senderJid: $this->senderJid, senderName: $this->senderName),
             new RideUpdateTool(chatJid: $this->chatJid, senderJid: $this->senderJid),
             new RideDeleteTool(chatJid: $this->chatJid, senderJid: $this->senderJid),
             new UserSettingsTool(senderJid: $this->senderJid),

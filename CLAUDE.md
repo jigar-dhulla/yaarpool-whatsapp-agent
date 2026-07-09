@@ -25,6 +25,7 @@ If yaarpool needs behaviour the package doesn't support, raise it as a feature r
 | `ride_request` | Persist a passenger looking for a lift | — |
 | `ride_create` | Persist a driver publishing a trip | — |
 | `ride_list` | List upcoming rides in the current chat | — |
+| `ride_join` | Reserve seat(s) on someone else's offer (stored in `ride_passengers`; availability = seats − joined) | — |
 | `ride_update` | Edit a ride the user previously posted | ✓ |
 | `ride_delete` | Cancel a ride the user previously posted | ✓ |
 

@@ -9,6 +9,7 @@ use App\Enums\Weekday;
 use Database\Factories\RideFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -41,6 +42,29 @@ class Ride extends Model
             'recurrence_days' => 'array',
             'seats' => 'integer',
         ];
+    }
+
+    /**
+     * @return HasMany<RidePassenger, $this>
+     */
+    public function passengers(): HasMany
+    {
+        return $this->hasMany(RidePassenger::class);
+    }
+
+    /**
+     * Seats already reserved by passengers who joined this ride. The `seats`
+     * column keeps the total the driver published; availability is derived so
+     * a passenger leaving (or being removed) restores seats automatically.
+     */
+    public function seatsTaken(): int
+    {
+        return (int) $this->passengers()->sum('seats');
+    }
+
+    public function seatsAvailable(): int
+    {
+        return max(0, $this->seats - $this->seatsTaken());
     }
 
     /**

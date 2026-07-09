@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 use App\Ai\Tools\RideCreateTool;
 use App\Ai\Tools\RideDeleteTool;
+use App\Ai\Tools\RideJoinTool;
 use App\Ai\Tools\RideListTool;
 use App\Ai\Tools\RideRequestTool;
 use App\Ai\Tools\RideUpdateTool;
 use App\Enums\RideType;
 use App\Models\Ride;
+use App\Models\RidePassenger;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Illuminate\Support\Carbon;
@@ -495,6 +497,287 @@ it('returns departs_at unchanged as the next occurrence for a one-off ride', fun
     expect($ride->nextOccurrence()->toDateTimeString())->toBe('2026-07-01 18:00:00');
 });
 
+it('lets a participant join a ride by id and reduces the seats left', function () {
+    $chatJid = '120363409213306573@g.us';
+
+    $ride = Ride::factory()->offer()->create([
+        'chat_jid' => $chatJid,
+        'sender_jid' => '918888888888@s.whatsapp.net',
+        'sender_name' => 'Asha',
+        'from_location' => 'Pune',
+        'to_location' => 'Mumbai',
+        'when_text' => 'Sat 9:30am',
+        'departs_at' => Carbon::now()->addDays(2),
+        'seats' => 3,
+    ]);
+
+    $reply = (new RideJoinTool(
+        chatJid: $chatJid,
+        senderJid: '919999999999@s.whatsapp.net',
+        senderName: 'Ravi',
+    ))->handle(new Request([
+        'ride_id' => $ride->id,
+        'seats' => 2,
+    ]));
+
+    $passenger = RidePassenger::sole();
+    expect($passenger->ride_id)->toBe($ride->id)
+        ->and($passenger->sender_jid)->toBe('919999999999@s.whatsapp.net')
+        ->and($passenger->sender_name)->toBe('Ravi')
+        ->and($passenger->seats)->toBe(2)
+        ->and($ride->fresh()->seatsAvailable())->toBe(1)
+        ->and((string) $reply)->toContain('Joined ride #'.$ride->id)
+        ->toContain('Asha')
+        ->toContain('1 seat left');
+
+    $list = (string) (new RideListTool(chatJid: $chatJid))->handle(new Request([]));
+    expect($list)->toContain('1 seat left');
+});
+
+it('resolves the ride from hints when exactly one offer matches', function () {
+    $chatJid = '120363409213306573@g.us';
+
+    $ride = Ride::factory()->offer()->create([
+        'chat_jid' => $chatJid,
+        'sender_name' => 'Asha',
+        'from_location' => 'Pune',
+        'to_location' => 'Mumbai',
+        'departs_at' => Carbon::now()->addDays(2),
+        'seats' => 3,
+    ]);
+
+    Ride::factory()->offer()->create([
+        'chat_jid' => $chatJid,
+        'from_location' => 'Delhi',
+        'to_location' => 'Agra',
+        'departs_at' => Carbon::now()->addDays(2),
+    ]);
+
+    $reply = (new RideJoinTool(chatJid: $chatJid, senderJid: '919999999999@s.whatsapp.net'))->handle(new Request([
+        'to' => 'Mumbai',
+    ]));
+
+    expect(RidePassenger::sole()->ride_id)->toBe($ride->id)
+        ->and((string) $reply)->toContain('Joined ride #'.$ride->id);
+});
+
+it('lists the candidates and asks for a ride number when hints are ambiguous', function () {
+    $chatJid = '120363409213306573@g.us';
+
+    $first = Ride::factory()->offer()->create([
+        'chat_jid' => $chatJid,
+        'to_location' => 'Mumbai',
+        'departs_at' => Carbon::now()->addDay(),
+    ]);
+
+    $second = Ride::factory()->offer()->create([
+        'chat_jid' => $chatJid,
+        'to_location' => 'Mumbai Airport',
+        'departs_at' => Carbon::now()->addDays(2),
+    ]);
+
+    $reply = (string) (new RideJoinTool(chatJid: $chatJid, senderJid: '919999999999@s.whatsapp.net'))->handle(new Request([
+        'to' => 'Mumbai',
+    ]));
+
+    expect(RidePassenger::count())->toBe(0)
+        ->and($reply)->toContain('Which ride number')
+        ->toContain('#'.$first->id)
+        ->toContain('#'.$second->id);
+});
+
+it('reports a miss when no offer matches the hints', function () {
+    $chatJid = '120363409213306573@g.us';
+
+    Ride::factory()->offer()->create([
+        'chat_jid' => $chatJid,
+        'to_location' => 'Mumbai',
+        'departs_at' => Carbon::now()->addDay(),
+    ]);
+
+    $reply = (string) (new RideJoinTool(chatJid: $chatJid, senderJid: '919999999999@s.whatsapp.net'))->handle(new Request([
+        'to' => 'Goa',
+    ]));
+
+    expect(RidePassenger::count())->toBe(0)
+        ->and($reply)->toContain('could not find a matching ride offer');
+});
+
+it('refuses to join your own ride', function () {
+    $chatJid = '120363409213306573@g.us';
+    $senderJid = '918888888888@s.whatsapp.net';
+
+    $ride = Ride::factory()->offer()->create([
+        'chat_jid' => $chatJid,
+        'sender_jid' => $senderJid,
+        'departs_at' => Carbon::now()->addDay(),
+    ]);
+
+    $reply = (new RideJoinTool(chatJid: $chatJid, senderJid: $senderJid))->handle(new Request([
+        'ride_id' => $ride->id,
+    ]));
+
+    expect(RidePassenger::count())->toBe(0)
+        ->and((string) $reply)->toContain('your own ride');
+});
+
+it('refuses to join the same ride twice', function () {
+    $chatJid = '120363409213306573@g.us';
+    $senderJid = '919999999999@s.whatsapp.net';
+
+    $ride = Ride::factory()->offer()->create([
+        'chat_jid' => $chatJid,
+        'departs_at' => Carbon::now()->addDay(),
+        'seats' => 3,
+    ]);
+
+    $tool = new RideJoinTool(chatJid: $chatJid, senderJid: $senderJid);
+
+    $tool->handle(new Request(['ride_id' => $ride->id]));
+    $reply = $tool->handle(new Request(['ride_id' => $ride->id]));
+
+    expect(RidePassenger::count())->toBe(1)
+        ->and((string) $reply)->toContain('already joined');
+});
+
+it('refuses to join when not enough seats are left', function () {
+    $chatJid = '120363409213306573@g.us';
+
+    $ride = Ride::factory()->offer()->create([
+        'chat_jid' => $chatJid,
+        'departs_at' => Carbon::now()->addDay(),
+        'seats' => 2,
+    ]);
+
+    RidePassenger::factory()->create(['ride_id' => $ride->id, 'seats' => 2]);
+
+    $partial = (string) (new RideJoinTool(chatJid: $chatJid, senderJid: '919999999999@s.whatsapp.net'))->handle(new Request([
+        'ride_id' => $ride->id,
+    ]));
+
+    expect($partial)->toContain('full')
+        ->and(RidePassenger::count())->toBe(1);
+});
+
+it('tells how many seats remain when asking for too many', function () {
+    $chatJid = '120363409213306573@g.us';
+
+    $ride = Ride::factory()->offer()->create([
+        'chat_jid' => $chatJid,
+        'departs_at' => Carbon::now()->addDay(),
+        'seats' => 3,
+    ]);
+
+    RidePassenger::factory()->create(['ride_id' => $ride->id, 'seats' => 2]);
+
+    $reply = (string) (new RideJoinTool(chatJid: $chatJid, senderJid: '919999999999@s.whatsapp.net'))->handle(new Request([
+        'ride_id' => $ride->id,
+        'seats' => 2,
+    ]));
+
+    expect($reply)->toContain('only has 1 seat left')
+        ->and(RidePassenger::count())->toBe(1);
+});
+
+it('refuses to join a ride request', function () {
+    $chatJid = '120363409213306573@g.us';
+
+    $ride = Ride::factory()->request()->create([
+        'chat_jid' => $chatJid,
+        'departs_at' => Carbon::now()->addDay(),
+    ]);
+
+    $reply = (string) (new RideJoinTool(chatJid: $chatJid, senderJid: '919999999999@s.whatsapp.net'))->handle(new Request([
+        'ride_id' => $ride->id,
+    ]));
+
+    expect(RidePassenger::count())->toBe(0)
+        ->and($reply)->toContain('request, not an offer');
+});
+
+it('refuses to join a ride that already departed', function () {
+    $chatJid = '120363409213306573@g.us';
+
+    $ride = Ride::factory()->offer()->create([
+        'chat_jid' => $chatJid,
+        'departs_at' => Carbon::now()->subHour(),
+    ]);
+
+    $reply = (string) (new RideJoinTool(chatJid: $chatJid, senderJid: '919999999999@s.whatsapp.net'))->handle(new Request([
+        'ride_id' => $ride->id,
+    ]));
+
+    expect(RidePassenger::count())->toBe(0)
+        ->and($reply)->toContain('already departed');
+});
+
+it('hides rides from other chats when joining', function () {
+    $ride = Ride::factory()->offer()->create([
+        'chat_jid' => 'other-chat@g.us',
+        'departs_at' => Carbon::now()->addDay(),
+    ]);
+
+    $reply = (new RideJoinTool(chatJid: '120363409213306573@g.us', senderJid: '919999999999@s.whatsapp.net'))->handle(new Request([
+        'ride_id' => $ride->id,
+    ]));
+
+    expect(RidePassenger::count())->toBe(0)
+        ->and((string) $reply)->toContain('could not find');
+});
+
+it('refuses to join when the sender JID is not known', function () {
+    $ride = Ride::factory()->offer()->create([
+        'chat_jid' => '120363409213306573@g.us',
+        'departs_at' => Carbon::now()->addDay(),
+    ]);
+
+    $reply = (new RideJoinTool(chatJid: '120363409213306573@g.us'))->handle(new Request([
+        'ride_id' => $ride->id,
+    ]));
+
+    expect(RidePassenger::count())->toBe(0)
+        ->and((string) $reply)->toContain('cannot verify');
+});
+
+it('lists a fully joined offer as FULL', function () {
+    $chatJid = '120363409213306573@g.us';
+
+    $ride = Ride::factory()->offer()->create([
+        'chat_jid' => $chatJid,
+        'from_location' => 'Pune',
+        'to_location' => 'Mumbai',
+        'departs_at' => Carbon::now()->addDay(),
+        'seats' => 2,
+    ]);
+
+    RidePassenger::factory()->create(['ride_id' => $ride->id, 'seats' => 2]);
+
+    $list = (string) (new RideListTool(chatJid: $chatJid))->handle(new Request([]));
+
+    expect($list)->toContain('FULL')
+        ->not->toContain('seats left');
+});
+
+it('removes passengers when their ride is cancelled', function () {
+    $chatJid = '120363409213306573@g.us';
+    $senderJid = '918888888888@s.whatsapp.net';
+
+    $ride = Ride::factory()->offer()->create([
+        'chat_jid' => $chatJid,
+        'sender_jid' => $senderJid,
+        'departs_at' => Carbon::now()->addDay(),
+    ]);
+
+    RidePassenger::factory()->create(['ride_id' => $ride->id]);
+
+    (new RideDeleteTool(chatJid: $chatJid, senderJid: $senderJid))->handle(new Request([
+        'ride_id' => $ride->id,
+    ]));
+
+    expect(Ride::find($ride->id))->toBeNull()
+        ->and(RidePassenger::count())->toBe(0);
+});
+
 it('exposes the expected names and schema keys to the agent', function () {
     $schema = new JsonSchemaTypeFactory;
 
@@ -509,6 +792,10 @@ it('exposes the expected names and schema keys to the agent', function () {
     expect((new RideListTool)->name())->toBe('ride_list')
         ->and(array_keys((new RideListTool)->schema($schema)))
         ->toBe(['type', 'limit']);
+
+    expect((new RideJoinTool)->name())->toBe('ride_join')
+        ->and(array_keys((new RideJoinTool)->schema($schema)))
+        ->toBe(['ride_id', 'from', 'to', 'poster_name', 'seats']);
 
     expect((new RideUpdateTool)->name())->toBe('ride_update')
         ->and(array_keys((new RideUpdateTool)->schema($schema)))
