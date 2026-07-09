@@ -15,5 +15,13 @@
             <p class="mt-2 font-display text-4xl font-extrabold">{{ $queuedJobsCount }}</p>
             <p class="mt-2 text-sm opacity-70">Jobs waiting to be processed.</p>
         </div>
+
+        <a href="{{ route('group-settings.index') }}" class="block rounded-3xl border border-ink/10 bg-white p-6 shadow-card transition hover:-translate-y-0.5 hover:shadow-card-lg">
+            <p class="text-xs font-bold uppercase tracking-wider opacity-60">Group settings</p>
+            <p class="mt-2 font-display text-4xl font-extrabold">{{ $groupSettingsCount }}</p>
+            <p class="mt-2 text-sm opacity-70">
+                {{ $groupSettingsCount === 0 ? 'No chats have default locations yet — add one from the group settings page.' : Str::ucfirst(Str::plural('chat', $groupSettingsCount)).' with default ride locations configured.' }}
+            </p>
+        </a>
     </div>
 </x-admin.layout>

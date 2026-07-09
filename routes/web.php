@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\FailedJobsController;
+use App\Http\Controllers\GroupSettingsController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -26,5 +27,10 @@ Route::prefix('admin')->group(function () {
         Route::get('/failed-jobs', [FailedJobsController::class, 'index'])->name('failed-jobs.index');
         Route::post('/failed-jobs/{uuid}/retry', [FailedJobsController::class, 'retry'])->name('failed-jobs.retry');
         Route::post('/failed-jobs/flush', [FailedJobsController::class, 'flush'])->name('failed-jobs.flush');
+
+        Route::get('/group-settings', [GroupSettingsController::class, 'index'])->name('group-settings.index');
+        Route::post('/group-settings', [GroupSettingsController::class, 'store'])->name('group-settings.store');
+        Route::put('/group-settings/{groupSetting}', [GroupSettingsController::class, 'update'])->name('group-settings.update');
+        Route::delete('/group-settings/{groupSetting}', [GroupSettingsController::class, 'destroy'])->name('group-settings.destroy');
     });
 });

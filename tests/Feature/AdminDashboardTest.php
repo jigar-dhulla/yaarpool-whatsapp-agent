@@ -9,13 +9,15 @@ use Illuminate\Support\Str;
 
 uses(RefreshDatabase::class);
 
-it('shows the dashboard with a nav menu listing the failed jobs page', function () {
+it('shows the dashboard with a nav menu listing the admin pages', function () {
     $this->actingAs(User::factory()->create())
         ->get(route('admin.dashboard'))
         ->assertOk()
         ->assertSee('Dashboard')
         ->assertSee('Failed jobs')
-        ->assertSee(route('failed-jobs.index'));
+        ->assertSee(route('failed-jobs.index'))
+        ->assertSee('Group settings')
+        ->assertSee(route('group-settings.index'));
 });
 
 it('shows the failed and queued job counts', function () {
