@@ -193,5 +193,108 @@ it('exposes the expected name and schema keys to the agent', function () {
     $tool = new UserSettingsTool;
 
     expect($tool->name())->toBe('user_settings')
-        ->and(array_keys($tool->schema(new JsonSchemaTypeFactory)))->toBe(['from', 'to']);
+        ->and(array_keys($tool->schema(new JsonSchemaTypeFactory)))->toBe([
+            'from', 'to', 'office_start_time', 'office_end_time', 'office_days',
+        ]);
+});
+
+it('saves office hours and travel days alongside the usual route', function () {
+    $senderJid = '919999999999@s.whatsapp.net';
+
+    $reply = (new UserSettingsTool(senderJid: $senderJid))->handle(new Request([
+        'from' => 'Wakad',
+        'to' => 'Hinjewadi',
+        'office_start_time' => '9am',
+        'office_end_time' => '6pm',
+        'office_days' => ['monday', 'wednesday', 'friday'],
+    ]));
+
+    expect(UserSetting::forSender($senderJid))
+        ->office_start_time->toBe('09:00:00')
+        ->office_end_time->toBe('18:00:00')
+        ->office_days->toBe(['monday', 'wednesday', 'friday'])
+        ->and((string) $reply)->toContain('9:00 AM–6:00 PM')
+        ->and((string) $reply)->toContain('Mon/Wed/Fri');
+});
+
+it('normalizes "daily" office days to every weekday', function () {
+    $senderJid = '919999999999@s.whatsapp.net';
+
+    (new UserSettingsTool(senderJid: $senderJid))->handle(new Request([
+        'from' => 'Wakad',
+        'office_days' => ['daily'],
+    ]));
+
+    expect(UserSetting::forSender($senderJid)->office_days)->toHaveCount(7);
+});
+
+it('saves office hours on their own once a route already exists', function () {
+    $senderJid = '919999999999@s.whatsapp.net';
+
+    UserSetting::factory()->create([
+        'sender_jid' => $senderJid,
+        'default_from_location' => 'Wakad',
+        'default_to_location' => 'Hinjewadi',
+    ]);
+
+    (new UserSettingsTool(senderJid: $senderJid))->handle(new Request([
+        'office_start_time' => '09:30',
+        'office_end_time' => '18:30',
+    ]));
+
+    expect(UserSetting::forSender($senderJid))
+        ->office_start_time->toBe('09:30:00')
+        ->office_end_time->toBe('18:30:00');
+});
+
+it('asks a clarifying question when the office start time cannot be parsed', function () {
+    $reply = (new UserSettingsTool(senderJid: '919999999999@s.whatsapp.net'))->handle(new Request([
+        'from' => 'Wakad',
+        'office_start_time' => 'whenever',
+    ]));
+
+    expect((string) $reply)->toContain('could not work out that start time');
+});
+
+it('nudges the user to also save office hours after saving a fresh route', function () {
+    $reply = (new UserSettingsTool(senderJid: '919999999999@s.whatsapp.net'))->handle(new Request([
+        'from' => 'Wakad',
+        'to' => 'Hinjewadi',
+    ]));
+
+    expect((string) $reply)->toContain('Want me to remember your office hours');
+});
+
+it('does not nudge again once office hours are already saved', function () {
+    $senderJid = '919999999999@s.whatsapp.net';
+
+    UserSetting::factory()->create([
+        'sender_jid' => $senderJid,
+        'default_from_location' => 'Wakad',
+        'office_start_time' => '09:00:00',
+    ]);
+
+    $reply = (new UserSettingsTool(senderJid: $senderJid))->handle(new Request([
+        'to' => 'Hinjewadi',
+    ]));
+
+    expect((string) $reply)->not->toContain('Want me to remember your office hours');
+});
+
+it('shows office hours and travel days when displaying saved defaults', function () {
+    $senderJid = '919999999999@s.whatsapp.net';
+
+    UserSetting::factory()->create([
+        'sender_jid' => $senderJid,
+        'default_from_location' => 'Wakad',
+        'default_to_location' => 'Hinjewadi',
+        'office_start_time' => '09:00:00',
+        'office_end_time' => '18:00:00',
+        'office_days' => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+    ]);
+
+    $reply = (new UserSettingsTool(senderJid: $senderJid))->handle(new Request([]));
+
+    expect((string) $reply)->toContain('9:00 AM–6:00 PM')
+        ->and((string) $reply)->toContain('in office daily');
 });
