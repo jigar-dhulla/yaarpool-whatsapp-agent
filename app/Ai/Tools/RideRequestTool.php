@@ -71,9 +71,10 @@ class RideRequestTool implements Tool
         ]);
 
         $repeats = $ride->isRecurring() ? ', repeats '.$ride->recurrenceLabel() : '';
+        $suggestion = $ride->dailyTravellerSuggestion();
 
         return sprintf(
-            'Ride request #%d noted: %s → %s, %s%s, %d seat%s. Drivers in the group will see it.',
+            'Ride request #%d noted: %s → %s, %s%s, %d seat%s. Drivers in the group will see it.%s',
             $ride->id,
             $ride->from_location,
             $ride->to_location,
@@ -81,6 +82,7 @@ class RideRequestTool implements Tool
             $repeats,
             $ride->seats,
             $ride->seats === 1 ? '' : 's',
+            $suggestion === null ? '' : ' '.$suggestion,
         );
     }
 

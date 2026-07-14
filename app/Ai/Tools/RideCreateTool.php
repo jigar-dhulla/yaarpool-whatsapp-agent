@@ -72,9 +72,10 @@ class RideCreateTool implements Tool
 
         $price = $ride->price_per_seat ? ' at '.$ride->price_per_seat.'/seat' : '';
         $repeats = $ride->isRecurring() ? ', repeats '.$ride->recurrenceLabel() : '';
+        $suggestion = $ride->dailyTravellerSuggestion();
 
         return sprintf(
-            'Ride #%d published: %s → %s, departing %s%s, %d seat%s available%s. Passengers in the group will see it.',
+            'Ride #%d published: %s → %s, departing %s%s, %d seat%s available%s. Passengers in the group will see it.%s',
             $ride->id,
             $ride->from_location,
             $ride->to_location,
@@ -83,6 +84,7 @@ class RideCreateTool implements Tool
             $ride->seats,
             $ride->seats === 1 ? '' : 's',
             $price,
+            $suggestion === null ? '' : ' '.$suggestion,
         );
     }
 
