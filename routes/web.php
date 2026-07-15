@@ -16,6 +16,14 @@ Route::get('/', function () {
     ]);
 });
 
+Route::get('/usage', function () {
+    $number = config('whatsapp-agent.number');
+
+    return view('usage', [
+        'whatsappInviteUrl' => $number ? 'https://wa.me/'.$number : null,
+    ]);
+})->name('usage');
+
 Route::prefix('admin')->group(function () {
     Route::middleware('guest')->group(function () {
         Route::get('/login', [LoginController::class, 'create'])->name('login');
