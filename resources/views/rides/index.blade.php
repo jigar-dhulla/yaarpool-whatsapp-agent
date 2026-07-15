@@ -63,11 +63,8 @@
 
                         <div class="shrink-0 text-left sm:text-right">
                             <p class="text-sm font-bold">
-                                {{ $ride->isRecurring() ? $ride->nextOccurrence()->format('D j M, H:i') : $ride->when_text }}
+                                {{ $ride->when_text }}
                             </p>
-                            @if ($ride->isRecurring())
-                                <p class="text-xs opacity-60">repeats {{ $ride->recurrenceLabel() }}</p>
-                            @endif
                         </div>
                     </div>
 

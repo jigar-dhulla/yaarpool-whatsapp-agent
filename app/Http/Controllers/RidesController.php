@@ -17,10 +17,7 @@ class RidesController extends Controller
         $now = Carbon::now();
 
         $query = Ride::query()
-            ->where(function ($q) use ($now) {
-                $q->where('departs_at', '>=', $now)
-                    ->orWhereNotNull('recurrence_days');
-            });
+            ->where('departs_at', '>=', $now);
 
         if ($type !== null) {
             $query->where('type', $type);
@@ -36,7 +33,7 @@ class RidesController extends Controller
         }
 
         $rides = $query->get()
-            ->sortBy(fn (Ride $ride): Carbon => $ride->nextOccurrence($now))
+            ->sortBy(fn (Ride $ride): Carbon => $ride->departs_at)
             ->values();
 
         return view('rides.index', [

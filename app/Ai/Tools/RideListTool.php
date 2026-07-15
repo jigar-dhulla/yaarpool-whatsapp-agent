@@ -35,10 +35,7 @@ class RideListTool implements Tool
         $now = Carbon::now();
 
         $query = Ride::query()
-            ->where(function ($q) use ($now) {
-                $q->where('departs_at', '>=', $now)
-                    ->orWhereNotNull('recurrence_days');
-            });
+            ->where('departs_at', '>=', $now);
 
         if ($this->chatJid !== null) {
             $query->where('chat_jid', $this->chatJid);
@@ -49,7 +46,7 @@ class RideListTool implements Tool
         }
 
         $rides = $query->get()
-            ->sortBy(fn (Ride $ride): Carbon => $ride->nextOccurrence($now))
+            ->sortBy(fn (Ride $ride): Carbon => $ride->departs_at)
             ->take($limit);
 
         if ($rides->isEmpty()) {
@@ -57,16 +54,13 @@ class RideListTool implements Tool
         }
 
         return $rides->map(fn (Ride $ride) => sprintf(
-            '#%d %s by %s: %s → %s, %s%s, %s%s',
+            '#%d %s by %s: %s → %s, %s, %s%s',
             $ride->id,
             $ride->type === RideType::Offer ? 'OFFER' : 'REQUEST',
             $ride->sender_name,
             $ride->from_location,
             $ride->to_location,
-            $ride->isRecurring()
-                ? $ride->nextOccurrence($now)->format('D j M, H:i')
-                : $ride->when_text,
-            $ride->isRecurring() ? ' (repeats '.$ride->recurrenceLabel().')' : '',
+            $ride->when_text,
             $this->seatsLabel($ride),
             $ride->price_per_seat ? ' @ '.$ride->price_per_seat : '',
         ))->implode("\n");

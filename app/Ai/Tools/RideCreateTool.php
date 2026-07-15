@@ -63,7 +63,6 @@ class RideCreateTool implements Tool
             'to_location' => (string) $to,
             'when_text' => (string) $request['when_text'],
             'departs_at' => $departsAt,
-            'recurrence_days' => Ride::normalizeRecurrenceDays($request['repeat_days'] ?? null),
             'seats' => max(1, (int) $request['seats']),
             'price_per_seat' => $request['price_per_seat'] ?? null,
             'vehicle' => $request['vehicle'] ?? null,
@@ -71,16 +70,14 @@ class RideCreateTool implements Tool
         ]);
 
         $price = $ride->price_per_seat ? ' at '.$ride->price_per_seat.'/seat' : '';
-        $repeats = $ride->isRecurring() ? ', repeats '.$ride->recurrenceLabel() : '';
         $suggestion = $ride->dailyTravellerSuggestion();
 
         return sprintf(
-            'Ride #%d published: %s → %s, departing %s%s, %d seat%s available%s. Passengers in the group will see it.%s',
+            'Ride #%d published: %s → %s, departing %s, %d seat%s available%s. Passengers in the group will see it.%s',
             $ride->id,
             $ride->from_location,
             $ride->to_location,
             $ride->when_text,
-            $repeats,
             $ride->seats,
             $ride->seats === 1 ? '' : 's',
             $price,
@@ -107,11 +104,6 @@ class RideCreateTool implements Tool
                 ->min(1)
                 ->max(8)
                 ->required(),
-            'repeat_days' => $schema->array()
-                ->items($schema->string()->enum([
-                    'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 'daily',
-                ]))
-                ->description('Set this only when the driver runs the trip on a repeating schedule. Use ["daily"] for every day, or list the specific weekdays, e.g. ["monday","wednesday","friday"]. Omit entirely for a one-off trip. Still set `departs_at` to the next matching occurrence.'),
             'price_per_seat' => $schema->string()
                 ->description('Cost per seat, including currency if mentioned (e.g. "₹150"). Omit if the driver did not state a price.'),
             'vehicle' => $schema->string()
