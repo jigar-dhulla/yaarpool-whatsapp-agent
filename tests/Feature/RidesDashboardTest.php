@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\Ride;
+use App\Models\RidePassenger;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -72,8 +73,66 @@ it('filters rides by search term', function () {
         ->assertDontSee('Berlin');
 });
 
+it('links each ride to its detail page', function () {
+    $ride = Ride::factory()->create();
+
+    $this->get(route('rides.index'))
+        ->assertOk()
+        ->assertSee(route('rides.show', $ride));
+});
+
+it('shows a ride with its details on the detail page', function () {
+    $ride = Ride::factory()->offer()->create([
+        'from_location' => 'Copenhagen',
+        'to_location' => 'Aarhus',
+        'sender_name' => 'Priya',
+        'notes' => 'Meet at the station',
+    ]);
+
+    RidePassenger::factory()->create([
+        'ride_id' => $ride->id,
+        'sender_name' => 'Ravi',
+        'seats' => 2,
+    ]);
+
+    $this->get(route('rides.show', $ride))
+        ->assertOk()
+        ->assertSee('Copenhagen')
+        ->assertSee('Aarhus')
+        ->assertSee('Priya')
+        ->assertSee('Meet at the station')
+        ->assertSee('Ravi')
+        ->assertSee('Cancel ride');
+});
+
+it('deletes a ride from the detail page', function () {
+    $ride = Ride::factory()->create();
+
+    $this->delete(route('rides.destroy', $ride))
+        ->assertRedirect(route('rides.index'));
+
+    expect(Ride::find($ride->id))->toBeNull();
+});
+
+it('cascades passenger reservations when a ride is deleted', function () {
+    $ride = Ride::factory()->offer()->create();
+    $passenger = RidePassenger::factory()->create(['ride_id' => $ride->id]);
+
+    $this->delete(route('rides.destroy', $ride))->assertRedirect(route('rides.index'));
+
+    expect(RidePassenger::find($passenger->id))->toBeNull();
+});
+
 it('redirects guests to the login screen', function () {
     auth()->logout();
 
     $this->get(route('rides.index'))->assertRedirect(route('login'));
+});
+
+it('forbids guests from viewing or deleting a ride', function () {
+    auth()->logout();
+    $ride = Ride::factory()->create();
+
+    $this->get(route('rides.show', $ride))->assertRedirect(route('login'));
+    $this->delete(route('rides.destroy', $ride))->assertRedirect(route('login'));
 });
