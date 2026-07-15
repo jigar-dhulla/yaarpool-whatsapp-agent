@@ -28,10 +28,13 @@ If yaarpool needs behaviour the package doesn't support, raise it as a feature r
 | `ride_join` | Reserve seat(s) on someone else's offer (stored in `ride_passengers`; availability = seats − joined) | — |
 | `ride_update` | Edit a ride the user previously posted | ✓ |
 | `ride_delete` | Cancel a ride the user previously posted | ✓ |
+| `user_settings` | Save or show the sender's personal defaults — usual route, office hours, and commute days | — |
 
 Owner-only tools refuse the call unless both `chat_jid` and `sender_jid` on the ride match the inbound message; rides in other chats are treated as not-found rather than surfaced.
 
 Group defaults: each chat can have admin-configured defaults in the `group_settings` table (`App\Models\GroupSetting`, keyed by `chat_jid`) — a `default_from_location` (required) and an optional `default_to_location`. `ride_create` / `ride_request` make `from`/`to` optional in their schema and fall back to these defaults via `GroupSetting::forChat()`, asking the user only when a location is neither stated nor defaulted. Admins manage them with `php artisan group:settings`.
+
+Personal defaults: each sender can save their own commute profile in the `user_settings` table (`App\Models\UserSetting`, keyed by `sender_jid`) — a `default_from_location`, optional `default_to_location`, `office_start_time` / `office_end_time`, and `office_days` (an array of weekdays, or `["daily"]`, normalized via `UserSetting::normalizeOfficeDays()` — handy for hybrid schedules). The `user_settings` tool reads/writes these via `UserSetting::forSender()`; calling it with no fields shows the saved defaults. Beyond filling in a sender's locations, a saved routine powers proactive matching: when a new ride is posted, `Ride::dailyTravellerSuggestion()` nudges the poster with chat members whose saved route and office days line up. Users manage their own defaults conversationally (there is no artisan command); admins can also view them in the dashboard (`App\Http\Controllers\UserSettingsController`).
 
 Datetime convention: the LLM emits `when_text` (verbatim user phrasing, kept for manual verification) plus a parsed `departs_at` (ISO-8601, NOT NULL). The current date is injected into the agent's instructions so relative phrases like "tomorrow" resolve correctly. Schemas use `->format('date-time')`; handlers read via `$request->date('departs_at')` and catch `Carbon\Exceptions\InvalidFormatException` to return a clarifying message.
 

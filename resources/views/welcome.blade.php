@@ -52,6 +52,7 @@
                     <a href="#how" class="transition hover:text-emerald-700">How it works</a>
                     <a href="#features" class="transition hover:text-emerald-700">Features</a>
                     <a href="#examples" class="transition hover:text-emerald-700">Examples</a>
+                    <a href="{{ route('usage') }}" class="transition hover:text-emerald-700">How to use</a>
                 </nav>
                 <a href="{{ $whatsappInviteUrl ?? '#cta' }}" @if ($whatsappInviteUrl) target="_blank" rel="noopener" @endif class="rounded-full bg-emerald-500 px-5 py-2 text-sm font-bold text-white shadow-card transition hover:-translate-y-0.5 hover:bg-emerald-600 hover:shadow-card-lg">
                     Get started
@@ -231,6 +232,12 @@
                             <p class="mt-2 text-sm italic">“{{ $quote }}”</p>
                         </div>
                     @endforeach
+                </div>
+                <div class="mt-10 text-center">
+                    <a href="{{ route('usage') }}" class="inline-flex items-center justify-center gap-2 rounded-full border border-ink/10 bg-white px-7 py-3.5 text-sm font-bold shadow-card transition hover:-translate-y-0.5 hover:text-emerald-700 hover:shadow-card-lg">
+                        See all the ways to use it
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                    </a>
                 </div>
             </section>
 
