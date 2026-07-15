@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\FailedJobsController;
 use App\Http\Controllers\GroupSettingsController;
+use App\Http\Controllers\UserSettingsController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -32,5 +33,10 @@ Route::prefix('admin')->group(function () {
         Route::post('/group-settings', [GroupSettingsController::class, 'store'])->name('group-settings.store');
         Route::put('/group-settings/{groupSetting}', [GroupSettingsController::class, 'update'])->name('group-settings.update');
         Route::delete('/group-settings/{groupSetting}', [GroupSettingsController::class, 'destroy'])->name('group-settings.destroy');
+
+        Route::get('/user-settings', [UserSettingsController::class, 'index'])->name('user-settings.index');
+        Route::post('/user-settings', [UserSettingsController::class, 'store'])->name('user-settings.store');
+        Route::put('/user-settings/{userSetting}', [UserSettingsController::class, 'update'])->name('user-settings.update');
+        Route::delete('/user-settings/{userSetting}', [UserSettingsController::class, 'destroy'])->name('user-settings.destroy');
     });
 });
