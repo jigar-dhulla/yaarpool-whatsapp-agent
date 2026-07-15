@@ -35,21 +35,21 @@ it('shows an empty state when there are no upcoming rides', function () {
         ->assertSee('No upcoming rides');
 });
 
-it('excludes past one-off rides but keeps past-dated recurring rides', function () {
-    $past = Ride::factory()->create([
+it('excludes past rides but keeps upcoming ones', function () {
+    Ride::factory()->create([
         'from_location' => 'PastCity',
         'departs_at' => now()->subDay(),
     ]);
 
-    $recurring = Ride::factory()->recurring()->create([
-        'from_location' => 'RecurringCity',
-        'departs_at' => now()->subWeek(),
+    Ride::factory()->create([
+        'from_location' => 'UpcomingCity',
+        'departs_at' => now()->addDay(),
     ]);
 
     $response = $this->get(route('rides.index'))->assertOk();
 
     $response->assertDontSee('PastCity')
-        ->assertSee('RecurringCity');
+        ->assertSee('UpcomingCity');
 });
 
 it('filters rides by type', function () {

@@ -52,7 +52,7 @@ class RideJoinTool implements Tool
             return sprintf('Ride #%d is your own ride — you are the driver, no need to join it.', $ride->id);
         }
 
-        if (! $ride->isRecurring() && $ride->departs_at->isPast()) {
+        if ($ride->departs_at->isPast()) {
             return sprintf('Ride #%d (%s) has already departed.', $ride->id, $ride->when_text);
         }
 
@@ -133,10 +133,7 @@ class RideJoinTool implements Tool
 
         $query = Ride::query()
             ->where('type', RideType::Offer)
-            ->where(function ($q) use ($now) {
-                $q->where('departs_at', '>=', $now)
-                    ->orWhereNotNull('recurrence_days');
-            })
+            ->where('departs_at', '>=', $now)
             ->when($this->chatJid !== null, fn ($q) => $q->where('chat_jid', $this->chatJid));
 
         foreach (['from' => 'from_location', 'to' => 'to_location', 'poster_name' => 'sender_name'] as $key => $column) {
@@ -146,7 +143,7 @@ class RideJoinTool implements Tool
         }
 
         $candidates = $query->get()
-            ->sortBy(fn (Ride $ride): Carbon => $ride->nextOccurrence($now))
+            ->sortBy(fn (Ride $ride): Carbon => $ride->departs_at)
             ->values();
 
         if ($candidates->isEmpty()) {
@@ -163,9 +160,7 @@ class RideJoinTool implements Tool
             $ride->sender_name,
             $ride->from_location,
             $ride->to_location,
-            $ride->isRecurring()
-                ? $ride->nextOccurrence($now)->format('D j M, H:i').' (repeats '.$ride->recurrenceLabel().')'
-                : $ride->when_text,
+            $ride->when_text,
         ));
 
         return "I found more than one matching ride. Which ride number would you like to join?\n".$lines->implode("\n");

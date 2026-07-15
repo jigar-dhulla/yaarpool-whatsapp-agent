@@ -195,37 +195,6 @@ it('matches a chat member known only through joining a ride, not posting one', f
     expect((string) $reply)->toContain('Chetan (daily)');
 });
 
-it('matches a recurring ride against any of its travel days', function () {
-    $chatJid = '120363409213306573@g.us';
-
-    Ride::factory()->create([
-        'chat_jid' => $chatJid,
-        'sender_jid' => '911111111111@s.whatsapp.net',
-        'sender_name' => 'Bob',
-        'from_location' => 'Wakad',
-        'to_location' => 'Hinjewadi',
-    ]);
-
-    UserSetting::factory()->create([
-        'sender_jid' => '911111111111@s.whatsapp.net',
-        'default_from_location' => 'Wakad',
-        'default_to_location' => 'Hinjewadi',
-        'office_days' => ['friday'],
-    ]);
-
-    $reply = (new RideCreateTool(chatJid: $chatJid, senderJid: '919999999999@s.whatsapp.net', senderName: 'Asha'))
-        ->handle(new Request([
-            'from' => 'Wakad',
-            'to' => 'Hinjewadi',
-            'when_text' => 'every Mon and Fri, 9am',
-            'departs_at' => '2026-07-20T09:00:00',
-            'repeat_days' => ['monday', 'friday'],
-            'seats' => 3,
-        ]));
-
-    expect((string) $reply)->toContain('Bob (Fri)');
-});
-
 it('ignores a chat member with no saved office days', function () {
     $chatJid = '120363409213306573@g.us';
 
