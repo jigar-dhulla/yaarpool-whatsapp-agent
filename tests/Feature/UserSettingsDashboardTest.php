@@ -83,7 +83,7 @@ it('updates the defaults for an existing user', function () {
         'default_to_location' => '',
         'office_start_time' => '09:30',
         'office_end_time' => '18:30',
-        'office_days' => ['daily'],
+        'office_days' => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
     ])
         ->assertRedirect(route('user-settings.index'))
         ->assertSessionHas('status');
