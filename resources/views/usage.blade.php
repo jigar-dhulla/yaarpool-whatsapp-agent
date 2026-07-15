@@ -26,6 +26,7 @@
                 'users' => '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
                 'pencil' => '<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>',
                 'ban' => '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
+                'calendar' => '<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M16 2v4"/><path d="m9 16 2 2 4-4"/>',
             ];
 
             $icon = fn (string $name, string $class = 'h-6 w-6'): string => '<svg class="'.$class.'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'.($iconPaths[$name] ?? '').'</svg>';
@@ -61,6 +62,12 @@
                     'Cancel my trip tomorrow.',
                     'Remove my Pune ride.',
                     'Withdraw ride #7.',
+                ]],
+                ['calendar', 'bg-emerald-100 text-emerald-700', 'Save your travel routine', 'Tell the bot your usual route, office hours, and which days you commute. It fills in your locations automatically and flags you when someone posts a matching ride.', [
+                    'I usually travel from Wakad to Hinjewadi.',
+                    'My office hours are 9am to 6pm, Mon/Wed/Fri.',
+                    'I\'m only in office on Tuesday and Thursday.',
+                    'What defaults have you saved for me?',
                 ]],
             ];
         @endphp
