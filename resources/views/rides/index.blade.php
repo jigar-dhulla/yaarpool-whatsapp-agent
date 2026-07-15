@@ -41,7 +41,7 @@
     @else
         <div class="mt-8 space-y-4">
             @foreach ($rides as $ride)
-                <div class="rounded-2xl border border-ink/10 bg-white p-5 shadow-card">
+                <a href="{{ route('rides.show', $ride) }}" class="block rounded-2xl border border-ink/10 bg-white p-5 shadow-card transition hover:-translate-y-0.5 hover:border-emerald-500/40 hover:shadow-card-lg">
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div class="min-w-0">
                             <div class="flex flex-wrap items-center gap-2">
@@ -83,7 +83,7 @@
                             <span>{{ $ride->vehicle }}</span>
                         @endif
                     </div>
-                </div>
+                </a>
             @endforeach
         </div>
     @endif

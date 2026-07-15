@@ -31,6 +31,8 @@ Route::prefix('admin')->group(function () {
         Route::post('/failed-jobs/flush', [FailedJobsController::class, 'flush'])->name('failed-jobs.flush');
 
         Route::get('/rides', [RidesController::class, 'index'])->name('rides.index');
+        Route::get('/rides/{ride}', [RidesController::class, 'show'])->name('rides.show');
+        Route::delete('/rides/{ride}', [RidesController::class, 'destroy'])->name('rides.destroy');
 
         Route::get('/group-settings', [GroupSettingsController::class, 'index'])->name('group-settings.index');
         Route::post('/group-settings', [GroupSettingsController::class, 'store'])->name('group-settings.store');
