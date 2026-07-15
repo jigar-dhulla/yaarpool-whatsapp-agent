@@ -26,6 +26,7 @@
                     <a href="{{ route('admin.dashboard') }}" class="rounded-full px-4 py-2 text-sm font-bold transition {{ request()->routeIs('admin.dashboard') ? 'bg-emerald-500 text-white' : 'opacity-70 hover:bg-ink/5 hover:opacity-100' }}">Dashboard</a>
                     <a href="{{ route('failed-jobs.index') }}" class="rounded-full px-4 py-2 text-sm font-bold transition {{ request()->routeIs('failed-jobs.*') ? 'bg-emerald-500 text-white' : 'opacity-70 hover:bg-ink/5 hover:opacity-100' }}">Failed jobs</a>
                     <a href="{{ route('group-settings.index') }}" class="rounded-full px-4 py-2 text-sm font-bold transition {{ request()->routeIs('group-settings.*') ? 'bg-emerald-500 text-white' : 'opacity-70 hover:bg-ink/5 hover:opacity-100' }}">Group settings</a>
+                    <a href="{{ route('user-settings.index') }}" class="rounded-full px-4 py-2 text-sm font-bold transition {{ request()->routeIs('user-settings.*') ? 'bg-emerald-500 text-white' : 'opacity-70 hover:bg-ink/5 hover:opacity-100' }}">User settings</a>
                 </div>
 
                 <div class="ml-auto flex items-center gap-4">
