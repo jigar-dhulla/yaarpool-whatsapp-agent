@@ -61,7 +61,7 @@ return [
     |
     */
 
-    'number' => preg_replace('/\D/', '', (string) env('WA_PHONE_NUMBER')),
+    'number' => preg_replace('/\D/', '', (string) env('WA_PHONE_NUMBER')) ?: '917977921376',
 
     'agents' => [
         [
