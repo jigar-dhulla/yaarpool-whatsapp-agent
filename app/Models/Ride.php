@@ -65,6 +65,37 @@ class Ride extends Model
     }
 
     /**
+     * Distinct WhatsApp senders known to a chat — anyone who has posted a ride
+     * there or joined one as a passenger. Optionally excludes a single sender
+     * (e.g. a ride's own poster). Each entry is a plain array because these
+     * queries select only sender_jid/sender_name (no primary key), and
+     * Eloquent\Collection::merge()/unique() key by getKey(), which would be
+     * null here and silently drop every row.
+     *
+     * @return Collection<int, array{sender_jid: string, sender_name: string|null}>
+     */
+    public static function knownSendersForChat(string $chatJid, ?string $exceptSenderJid = null): Collection
+    {
+        $toSenderArray = fn ($model): array => ['sender_jid' => $model->sender_jid, 'sender_name' => $model->sender_name];
+
+        $rideSenders = static::query()
+            ->where('chat_jid', $chatJid)
+            ->whereNotNull('sender_jid')
+            ->when($exceptSenderJid !== null, fn ($query) => $query->where('sender_jid', '!=', $exceptSenderJid))
+            ->get(['sender_jid', 'sender_name'])
+            ->map($toSenderArray);
+
+        $passengerSenders = RidePassenger::query()
+            ->whereHas('ride', fn ($query) => $query->where('chat_jid', $chatJid))
+            ->whereNotNull('sender_jid')
+            ->when($exceptSenderJid !== null, fn ($query) => $query->where('sender_jid', '!=', $exceptSenderJid))
+            ->get(['sender_jid', 'sender_name'])
+            ->map($toSenderArray);
+
+        return $rideSenders->merge($passengerSenders)->unique('sender_jid')->values();
+    }
+
+    /**
      * Chat members (other than this ride's poster) whose saved commute —
      * usual route plus office days — matches this ride's route and travel
      * day(s). Scoped to senders previously seen in this chat (as a poster or
@@ -83,25 +114,7 @@ class Ride extends Model
         $to = Str::lower(trim($this->to_location));
         $travelDays = [Str::lower($this->departs_at->format('l'))];
 
-        // Map to plain arrays: these queries only select sender_jid/sender_name
-        // (no primary key), and Eloquent\Collection::merge()/unique() key by
-        // getKey(), which would be null here and silently drop every row.
-        $toSenderArray = fn ($model): array => ['sender_jid' => $model->sender_jid, 'sender_name' => $model->sender_name];
-
-        $knownSenders = static::query()
-            ->where('chat_jid', $this->chat_jid)
-            ->whereNotNull('sender_jid')
-            ->where('sender_jid', '!=', $this->sender_jid)
-            ->get(['sender_jid', 'sender_name'])
-            ->map($toSenderArray)
-            ->merge(
-                RidePassenger::query()
-                    ->whereHas('ride', fn ($query) => $query->where('chat_jid', $this->chat_jid))
-                    ->where('sender_jid', '!=', $this->sender_jid)
-                    ->get(['sender_jid', 'sender_name'])
-                    ->map($toSenderArray)
-            )
-            ->unique('sender_jid');
+        $knownSenders = static::knownSendersForChat($this->chat_jid, $this->sender_jid);
 
         if ($knownSenders->isEmpty()) {
             return new Collection;
