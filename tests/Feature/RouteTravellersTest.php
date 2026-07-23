@@ -124,7 +124,7 @@ it('does not surface personal defaults for someone never seen in this chat', fun
 
     $reply = (new RouteTravellersTool(chatJid: $chatJid))->handle(new Request([]));
 
-    expect((string) $reply)->toContain('No one in this chat has shared a ride yet');
+    expect((string) $reply)->toContain('No one in this chat has saved a usual route');
 });
 
 it('reports when the requested route matches no saved defaults', function () use ($chatJid) {

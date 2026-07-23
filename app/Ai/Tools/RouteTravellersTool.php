@@ -37,29 +37,24 @@ class RouteTravellersTool implements Tool
         $from = $this->normalize($request['from'] ?? null);
         $to = $this->normalize($request['to'] ?? null);
 
-        $senders = Ride::knownSendersForChat($this->chatJid);
-
-        if ($senders->isEmpty()) {
-            return 'No one in this chat has shared a ride yet, so I don\'t know anyone\'s usual route.';
-        }
-
-        $namesBySender = $senders->pluck('sender_name', 'sender_jid');
-
-        $matches = UserSetting::query()
-            ->whereIn('sender_jid', $senders->pluck('sender_jid'))
+        // Saved personal defaults are the source of truth for a usual route, so
+        // start from user_settings rather than gating on ride history.
+        $routes = UserSetting::query()
             ->whereNotNull('default_from_location')
             ->get()
-            ->filter(function (UserSetting $setting) use ($from, $to): bool {
-                if ($from !== null && ! Str::contains($this->normalize($setting->default_from_location) ?? '', $from)) {
-                    return false;
-                }
+            ->filter(fn (UserSetting $setting): bool => $this->matchesRoute($setting, $from, $to));
 
-                if ($to !== null && ! Str::contains($this->normalize($setting->default_to_location) ?? '', $to)) {
-                    return false;
-                }
+        if ($routes->isEmpty()) {
+            return $this->emptyMessage($from, $to);
+        }
 
-                return true;
-            })
+        // Then check past ride history: only surface people known to this chat
+        // (as a poster or a passenger) so a saved route never leaks into a
+        // group the person has never been part of.
+        $namesBySender = Ride::knownSendersForChat($this->chatJid)->pluck('sender_name', 'sender_jid');
+
+        $matches = $routes
+            ->filter(fn (UserSetting $setting): bool => $namesBySender->has($setting->sender_jid))
             ->map(fn (UserSetting $setting): string => $this->line($setting, $namesBySender->get($setting->sender_jid)))
             ->values();
 
@@ -68,6 +63,24 @@ class RouteTravellersTool implements Tool
         }
 
         return $matches->implode("\n");
+    }
+
+    /**
+     * Whether a saved route matches the requested from/to filters. Both sides
+     * are compared case-insensitively and by partial text, so "wakad" matches
+     * a saved "Wakad Station". A null filter matches anything.
+     */
+    private function matchesRoute(UserSetting $setting, ?string $from, ?string $to): bool
+    {
+        if ($from !== null && ! Str::contains($this->normalize($setting->default_from_location) ?? '', $from)) {
+            return false;
+        }
+
+        if ($to !== null && ! Str::contains($this->normalize($setting->default_to_location) ?? '', $to)) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
