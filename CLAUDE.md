@@ -28,6 +28,7 @@ If yaarpool needs behaviour the package doesn't support, raise it as a feature r
 | `ride_join` | Reserve seat(s) on someone else's offer (stored in `ride_passengers`; availability = seats − joined) | — |
 | `ride_update` | Edit a ride the user previously posted | ✓ |
 | `ride_delete` | Cancel a ride the user previously posted | ✓ |
+| `route_travellers` | List chat members whose saved personal route matches (works with no ride posted) | — |
 | `user_settings` | Save or show the sender's personal defaults — usual route, office hours, and commute days | — |
 
 Owner-only tools refuse the call unless both `chat_jid` and `sender_jid` on the ride match the inbound message; rides in other chats are treated as not-found rather than surfaced.

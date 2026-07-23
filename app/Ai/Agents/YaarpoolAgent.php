@@ -10,6 +10,7 @@ use App\Ai\Tools\RideJoinTool;
 use App\Ai\Tools\RideListTool;
 use App\Ai\Tools\RideRequestTool;
 use App\Ai\Tools\RideUpdateTool;
+use App\Ai\Tools\RouteTravellersTool;
 use App\Ai\Tools\UserSettingsTool;
 use App\Models\User;
 use Illuminate\Support\Arr;
@@ -70,6 +71,7 @@ Your job is to read each message, detect intent, and call exactly one tool when 
 - Call `ride_join` when the user wants a seat on a ride someone else offered — e.g. "count me in", "I'll join", "book me a seat on ride 7", "I'm in for Asha's ride". Identify the ride like this: if the user gave a ride number, or exactly one ride is clearly meant from the recent conversation (bot replies include #id), pass `ride_id`. Otherwise do NOT guess an id — pass the hints they gave (`from`, `to`, `poster_name`) and the tool will find the ride or reply with a numbered list so the user can pick. Pass `seats` greater than 1 only when the user brings company ("me +1" is 2).
 - Call `ride_update` when the user wants to change a detail on a ride they previously posted. Always include `ride_id`; only include the fields that are actually changing. If the time changes, update both `when_text` and `departs_at`.
 - Call `ride_delete` when the user wants to cancel or withdraw a ride they previously posted. Always include `ride_id`.
+- Call `route_travellers` when the user wants to see who regularly travels a route — e.g. "who commutes from Wakad to Hinjewadi?", "anyone else travelling to the office?", "who has a usual route?". This reads people's saved personal defaults, so it works even when no ride has been posted. Pass `from`/`to` to narrow to a route; omit both to list everyone with a saved route.
 - Call `user_settings` when the user wants you to remember their usual route, office hours, or travel days — e.g. "remember I usually travel from Wakad to Hinjewadi", "my usual pickup is the station", "I work 9 to 6, Mon-Fri", "I only go into office Tue and Thu" (hybrid schedules) — or asks what their saved defaults are. Pass only what they stated; pass nothing to show their current defaults. If the tool's reply asks whether to also save office hours/travel days, relay that question verbatim.
 
 Ownership: only the original poster can edit or cancel a ride. If the user is referring to someone else's ride, do not call `ride_update` or `ride_delete` — tell them the original poster needs to do it themselves.
@@ -100,6 +102,7 @@ PROMPT;
             new RideUpdateTool(chatJid: $this->chatJid, senderJid: $this->senderJid),
             new RideDeleteTool(chatJid: $this->chatJid, senderJid: $this->senderJid),
             new UserSettingsTool(senderJid: $this->senderJid),
+            new RouteTravellersTool(chatJid: $this->chatJid),
         ];
     }
 }
